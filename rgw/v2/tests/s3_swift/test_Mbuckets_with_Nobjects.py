@@ -69,6 +69,8 @@ def test_exec(config):
     ceph_conf = CephConfOp()
     rgw_service = RGWService()
 
+    raise Exception("testing log.error for tfa analyser")
+
     # create user
     if config.dbr_scenario == "brownfield":
         user_brownfiled = "brownfield_user"
