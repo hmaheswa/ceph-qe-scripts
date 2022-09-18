@@ -109,7 +109,7 @@ def test_exec(config, ssh_con):
         bucket_name = utils.gen_bucket_name_from_userid(user_info["user_id"], rand_no=i)
         bucket = reusable.create_bucket(bucket_name, rgw_conn, user_info)
         buckets.append(bucket)
-    for i in range((config.bucket_count)/2):
+    for i in range(int(config.bucket_count/2)):
         if config.test_ops.get("enable_version", False):
             log.info("enable bucket version")
             reusable.enable_versioning(buckets[i], rgw_conn, user_info, write_bucket_io_info)
