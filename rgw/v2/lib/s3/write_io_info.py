@@ -1,6 +1,7 @@
 import logging
 import os
 import sys
+import fasteners
 
 sys.path.append(os.path.abspath(os.path.join(__file__, "../../../")))
 from v2.utils.utils import FileOps
@@ -90,6 +91,7 @@ class AddIOInfo(object):
     def __init__(self, yaml_fname=IO_INFO_FNAME):
         self.yaml_fname = yaml_fname
         self.file_op = FileOps(self.yaml_fname, type="yaml")
+        self.lock = fasteners.InterProcessLock(self.yaml_fname)
 
 
 class IOInfoInitialize(AddIOInfo):
@@ -109,7 +111,9 @@ class IOInfoInitialize(AddIOInfo):
             data
         """
         log.info("initial_data: %s" % (data))
+        self.lock.acquire()
         self.file_op.add_data(data)
+        self.lock.release()
 
 
 class AddUserInfo(AddIOInfo):
@@ -128,12 +132,14 @@ class AddUserInfo(AddIOInfo):
         Parameters:
             user:
         """
+        self.lock.acquire()
         log.info("got user info structure: %s" % user)
         yaml_data = self.file_op.get_data()
         log.info("got yaml data %s" % yaml_data)
         yaml_data["users"].append(user)
         log.info("data to add: %s" % yaml_data)
         self.file_op.add_data(yaml_data)
+        self.lock.release()
 
     def set_user_deleted(self, access_key):
         """
@@ -141,6 +147,7 @@ class AddUserInfo(AddIOInfo):
         Parameters:
             access_key:
         """
+        self.lock.acquire()
         log.info("Setting user as deleted")
         yaml_data = self.file_op.get_data()
         indx = None
@@ -150,6 +157,7 @@ class AddUserInfo(AddIOInfo):
                 break
         yaml_data["users"][indx]["deleted"] = True
         self.file_op.add_data(yaml_data)
+        self.lock.release()
 
 
 class BucketIoInfo(AddIOInfo):
@@ -171,6 +179,7 @@ class BucketIoInfo(AddIOInfo):
             access_key:
             bucket_info:
         """
+        self.lock.acquire()
         yaml_data = self.file_op.get_data()
         indx = None
         for i, k in enumerate(yaml_data["users"]):
@@ -179,6 +188,7 @@ class BucketIoInfo(AddIOInfo):
                 break
         yaml_data["users"][indx]["bucket"].append(bucket_info)
         self.file_op.add_data(yaml_data)
+        self.lock.release()
 
     def set_bucket_deleted(self, bucket_name):
         """
@@ -187,6 +197,7 @@ class BucketIoInfo(AddIOInfo):
             access_key:
             bucket_name:
         """
+        self.lock.acquire()
         log.info(f"marking bucket '{bucket_name}' as deleted")
         yaml_data = self.file_op.get_data()
         access_key_indx = None
@@ -199,6 +210,7 @@ class BucketIoInfo(AddIOInfo):
                     break
         yaml_data["users"][access_key_indx]["bucket"][bucket_indx]["deleted"] = True
         self.file_op.add_data(yaml_data)
+        self.lock.release()
 
     def add_versioning_status(self, access_key, bucket_name, versioning_status):
         """
@@ -208,6 +220,7 @@ class BucketIoInfo(AddIOInfo):
             bucket_name:
             versioning_status:
         """
+        self.lock.acquire()
         yaml_data = self.file_op.get_data()
         access_key_indx = None
         bucket_indx = None
@@ -223,6 +236,7 @@ class BucketIoInfo(AddIOInfo):
             "curr_versioning_status"
         ] = versioning_status
         self.file_op.add_data(yaml_data)
+        self.lock.release()
 
     def add_properties(self, access_key, bucket_name, properties):
         """
@@ -232,6 +246,7 @@ class BucketIoInfo(AddIOInfo):
             bucket_name:
             properties:
         """
+        self.lock.acquire()
         yaml_data = self.file_op.get_data()
         access_key_indx = None
         bucket_indx = None
@@ -247,6 +262,7 @@ class BucketIoInfo(AddIOInfo):
             properties
         )
         self.file_op.add_data(yaml_data)
+        self.lock.release()
 
 
 class KeyIoInfo(AddIOInfo):
@@ -266,6 +282,7 @@ class KeyIoInfo(AddIOInfo):
             bucket_name: Name of the bucket
             key_info: key information
         """
+        self.lock.acquire()
         yaml_data = self.file_op.get_data()
         access_key_indx = None
         bucket_indx = None
@@ -281,6 +298,7 @@ class KeyIoInfo(AddIOInfo):
             key_info
         )
         self.file_op.add_data(yaml_data)
+        self.lock.release()
 
     def set_key_deleted(self, bucket_name, key_name):
         """
@@ -290,6 +308,7 @@ class KeyIoInfo(AddIOInfo):
             bucket_name: name of the bucket
             key_name: name of the key
         """
+        self.lock.acquire()
         log.info(f"marking key '{key_name}' in bucket '{bucket_name}' as deleted")
         yaml_data = self.file_op.get_data()
         access_key_indx = None
@@ -311,6 +330,7 @@ class KeyIoInfo(AddIOInfo):
             "deleted"
         ] = True
         self.file_op.add_data(yaml_data)
+        self.lock.release()
 
     def add_properties(self, access_key, bucket_name, key_name, properties):
         """
@@ -322,6 +342,7 @@ class KeyIoInfo(AddIOInfo):
             key_name: name of the key
             properties: properties
         """
+        self.lock.acquire()
         yaml_data = self.file_op.get_data()
         access_key_indx = None
         bucket_indx = None
@@ -344,6 +365,7 @@ class KeyIoInfo(AddIOInfo):
             "properties"
         ].append(properties)
         self.file_op.add_data(yaml_data)
+        self.lock.release()
 
     def add_versioning_info(self, access_key, bucket_name, key_name, versioning_info):
         """
@@ -355,6 +377,7 @@ class KeyIoInfo(AddIOInfo):
             key_name: name of the key
             versioning_info: versioning information
         """
+        self.lock.acquire()
         yaml_data = self.file_op.get_data()
         access_key_indx = None
         bucket_indx = None
@@ -377,6 +400,7 @@ class KeyIoInfo(AddIOInfo):
             "versioning_info"
         ].append(versioning_info)
         self.file_op.add_data(yaml_data)
+        self.lock.release()
 
     def delete_version_info(self, access_key, bucket_name, key_name, version_id):
         """
@@ -388,6 +412,7 @@ class KeyIoInfo(AddIOInfo):
             key_name: name of the key
             version_id: version id of the object
         """
+        self.lock.acquire()
         yaml_data = self.file_op.get_data()
         access_key_indx = None
         bucket_indx = None
@@ -421,6 +446,7 @@ class KeyIoInfo(AddIOInfo):
                 key_indx
             ]["versioning_info"].pop(version_info_indx)
         self.file_op.add_data(yaml_data)
+        self.lock.release()
 
 
 def logioinfo(func):

@@ -10,6 +10,7 @@ s3cmd
 simplejson
 swiftly
 paramiko
+fasteners
 
 # for v1
 #psutil
