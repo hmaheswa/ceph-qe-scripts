@@ -137,7 +137,7 @@ def get_bucket_notification(rgw_s3_client, bucketname, empty=False):
     )
 
 
-def verify_event_record(event_type, bucket, event_record_path, ceph_version):
+def verify_event_record(event_type, bucket, event_record_path, ceph_version, expected_records):
     """
     verify event records
     """
@@ -146,6 +146,9 @@ def verify_event_record(event_type, bucket, event_record_path, ceph_version):
 
     # read the file event_record
     with open(event_record_path, "r") as records:
+        actual_records = len(records)
+        if expected_records != actual_records:
+            raise EventRecordDataError("expected number of records not created, records for some objects are missing")
         for record in records:
             event_record = record.strip()
             log.info(f" event record \n {record}")
