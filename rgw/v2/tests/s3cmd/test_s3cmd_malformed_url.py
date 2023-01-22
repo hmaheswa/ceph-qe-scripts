@@ -34,7 +34,7 @@ from v2.lib import resource_op
 from v2.lib.exceptions import RGWBaseException, TestExecError
 from v2.lib.s3.write_io_info import BasicIOInfoStructure, IOInfoInitialize
 from v2.lib.s3cmd import auth as s3_auth
-from v2.tests.s3_swift.reusables import execute_command_with_permutations
+from v2.tests.s3cmd.reusables.malformed_url import execute_command_with_permutations
 from v2.tests.s3cmd import reusable as s3cmd_reusable
 from v2.utils import utils
 from v2.utils.log import configure_logging
