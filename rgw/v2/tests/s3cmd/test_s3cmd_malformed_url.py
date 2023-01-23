@@ -63,7 +63,7 @@ def test_exec(config, ssh_con):
         bucket_name = utils.gen_bucket_name_from_userid(user_name, rand_no=bc)
         s3cmd_reusable.create_bucket(bucket_name)
         log.info(f"Bucket {bucket_name} created")
-        utils.exec_shell_cmd("echo 'hello world' >> hello_world.txt")
+        utils.exec_shell_cmd("echo 'hello world' > hello_world.txt")
         cmd = f"/home/cephuser/venv/bin/s3cmd put hello_world.txt s3://{bucket_name}"
         utils.exec_shell_cmd(cmd)
 

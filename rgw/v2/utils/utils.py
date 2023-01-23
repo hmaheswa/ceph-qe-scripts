@@ -28,18 +28,18 @@ def exec_long_running_shell_cmd(cmd, debug_info=False):
         pr = subprocess.Popen(
             cmd,
             stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
             universal_newlines=True,
             shell=True,
         )
         # Poll process.stdout to show stdout live
         while True:
-            output = pr.stdout.readline()
+            output = pr.stdout.read(4096)
             if pr.poll() is not None:
                 break
             if output:
-                print
-                output.strip()
+                print(output.strip(), end='')
+        print()
         rc = pr.poll()
         if rc == 0:
             log.info("cmd excuted")
