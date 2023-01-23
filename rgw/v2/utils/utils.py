@@ -34,11 +34,11 @@ def exec_long_running_shell_cmd(cmd, debug_info=False):
         )
         # Poll process.stdout to show stdout live
         while True:
-            output = pr.stdout.read(4096)
+            output = pr.stdout.readline()
             if pr.poll() is not None:
                 break
             if output:
-                print(output.strip(), end='')
+                log.info(output.strip())
         print()
         rc = pr.poll()
         if rc == 0:

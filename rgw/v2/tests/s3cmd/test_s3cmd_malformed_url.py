@@ -29,7 +29,7 @@ import traceback
 
 sys.path.append(os.path.abspath(os.path.join(__file__, "../../../..")))
 
-
+import v2.lib.manage_data as manage_data
 from v2.lib import resource_op
 from v2.lib.exceptions import RGWBaseException, TestExecError
 from v2.lib.s3.write_io_info import BasicIOInfoStructure, IOInfoInitialize
@@ -39,6 +39,7 @@ from v2.tests.s3cmd import reusable as s3cmd_reusable
 from v2.utils import utils
 from v2.utils.log import configure_logging
 from v2.utils.test_desc import AddTestInfo
+from v2.lib.s3cmd.resource_op import S3CMD
 
 log = logging.getLogger()
 TEST_DATA_PATH = None
@@ -59,38 +60,51 @@ def test_exec(config, ssh_con):
     ip_and_port = s3cmd_reusable.get_rgw_ip_and_port(ssh_con)
     s3_auth.do_auth(user_info, ip_and_port)
 
+    object_name = "hello_world.txt"
+    data_info = manage_data.io_generator(object_name, 1)
+    if data_info is False:
+        TestExecError("data creation failed")
+
     for bc in range(config.bucket_count):
         bucket_name = utils.gen_bucket_name_from_userid(user_name, rand_no=bc)
         s3cmd_reusable.create_bucket(bucket_name)
         log.info(f"Bucket {bucket_name} created")
-        utils.exec_shell_cmd("echo 'hello world' > hello_world.txt")
-        cmd = f"/home/cephuser/venv/bin/s3cmd put hello_world.txt s3://{bucket_name}"
+        cmd = f"/home/cephuser/venv/bin/s3cmd put {object_name} s3://{bucket_name}"
         utils.exec_shell_cmd(cmd)
 
-        if "put" in config.test_ops["command_types"]:
-            cmd = "s3cmd put hello_world.txt s3uri"
-            execute_command_with_permutations(cmd, config)
-        if "get" in config.test_ops["command_types"]:
-            cmd = "s3cmd get s3uri"
-            execute_command_with_permutations(cmd, config)
-        if "ls" in config.test_ops["command_types"]:
-            cmd = "s3cmd ls s3uri"
-            execute_command_with_permutations(cmd, config)
-        if "cp" in config.test_ops["command_types"]:
-            cmd = f"s3cmd cp s3://{bucket_name}/hello_world.txt s3uri"
-            execute_command_with_permutations(cmd, config)
-        if "mv" in config.test_ops["command_types"]:
-            cmd = f"s3cmd mv s3://{bucket_name}/hello_world.txt s3uri"
-            execute_command_with_permutations(cmd, config)
-        if "del" in config.test_ops["command_types"]:
-            cmd = "s3cmd del s3uri"
-            execute_command_with_permutations(cmd, config)
-        if "sync" in config.test_ops["command_types"]:
-            cmd = "s3cmd sync s3uri /tmp"
-            execute_command_with_permutations(cmd, config)
-        if "multipart" in config.test_ops["command_types"]:
-            cmd = "s3cmd multipart s3uri"
-            execute_command_with_permutations(cmd, config)
+        # if "put" in config.test_ops["command_types"]:
+        #     cmd = "s3cmd put hello_world.txt s3uri"
+        #     execute_command_with_permutations(cmd, config)
+        # if "get" in config.test_ops["command_types"]:
+        #     cmd = "s3cmd get s3uri"
+        #     execute_command_with_permutations(cmd, config)
+        # if "ls" in config.test_ops["command_types"]:
+        #     cmd = "s3cmd ls s3uri"
+        #     execute_command_with_permutations(cmd, config)
+        # if "cp" in config.test_ops["command_types"]:
+        #     cmd = f"s3cmd cp s3://{bucket_name}/hello_world.txt s3uri"
+        #     execute_command_with_permutations(cmd, config)
+        # if "mv" in config.test_ops["command_types"]:
+        #     cmd = f"s3cmd mv s3://{bucket_name}/hello_world.txt s3uri"
+        #     execute_command_with_permutations(cmd, config)
+        # if "del" in config.test_ops["command_types"]:
+        #     cmd = "s3cmd del s3uri"
+        #     execute_command_with_permutations(cmd, config)
+        # if "sync" in config.test_ops["command_types"]:
+        #     cmd = "s3cmd sync s3uri /tmp"
+        #     execute_command_with_permutations(cmd, config)
+        # if "multipart" in config.test_ops["command_types"]:
+        #     cmd = "s3cmd multipart s3uri"
+        #     execute_command_with_permutations(cmd, config)
+
+        operation = config.test_ops["command_type"]
+        options = config.test_ops.get("options")
+        params = config.test_ops.get("params")
+        s3cmd_class = S3CMD(operation=operation, options=options)
+        cmd = s3cmd_class.command(params=params)
+        cmd = cmd.replace("{bucket_name}", bucket_name)
+        cmd = cmd.replace("{object_name}", object_name)
+        execute_command_with_permutations(cmd, config)
 
 
 if __name__ == "__main__":

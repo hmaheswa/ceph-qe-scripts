@@ -4,5 +4,7 @@ config:
   bucket_count: 1
   permutation_count: 3
   test_ops:
-    command_types:
-    - "mv"
+    operation: "mv"
+    params:
+      - "s3://{bucket_name}{object_name}"
+      - "s3uri"

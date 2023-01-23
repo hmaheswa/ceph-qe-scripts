@@ -1,7 +1,7 @@
 import logging
 
 import v2.utils.utils as utils
-from v3.utils.parallel import parallel
+from v2.utils.parallel import parallel
 from v2.lib.exceptions import TestExecError
 from v2.tests.s3_swift import reusable
 from itertools import permutations
@@ -45,19 +45,19 @@ def execute_command_with_permutations(sample_cmd, config):
 
     # execute the command with special characters at the end
     utils.exec_shell_cmd(cmd)
-    # cmd = (
-    #     f"random_strings={random_strings};"
-    #     + "for i in ${random_strings[@]};"
-    #     + f"do echo {sample_cmd.replace('s3uri', 's3://${i}')};"
-    #     + f"/home/cephuser/venv/bin/{sample_cmd.replace('s3uri', 's3://${i}')};"
-    #     + "done;"
-    # )
-    # out = utils.exec_long_running_shell_cmd(cmd)
-    # log.info(out)
-    with parallel() as p:
-        for s in random_strings:
-            cmd = f"/home/cephuser/venv/bin/{sample_cmd.replace('s3uri', f's3://{s}')};"
-            p.spawn(utils.exec_long_running_shell_cmd, cmd)
+    cmd = (
+        f"random_strings={random_strings};"
+        + "for i in ${random_strings[@]};"
+        + f"do echo {sample_cmd.replace('s3uri', 's3://${i}')};"
+        + f"/home/cephuser/venv/bin/{sample_cmd.replace('s3uri', 's3://${i}')};"
+        + "done;"
+    )
+    out = utils.exec_long_running_shell_cmd(cmd)
+    log.info(out)
+    # with parallel() as p:
+    #     for s in random_strings_list:
+    #         cmd = f"/home/cephuser/venv/bin/{sample_cmd.replace('s3uri', f's3://{s}')};"
+    #         p.spawn(utils.exec_long_running_shell_cmd, cmd)
 
     # check for any crashes during the execution
     crash_info = reusable.check_for_crash()

@@ -4,5 +4,7 @@ config:
   bucket_count: 1
   permutation_count: 3
   test_ops:
-    command_types:
-    - "del"
+    operation: "del"
+    params:
+      - "s3uri"
+
