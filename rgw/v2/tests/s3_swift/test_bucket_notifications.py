@@ -88,7 +88,7 @@ def test_exec(config, ssh_con):
                 bucket = reusable.create_bucket(
                     bucket_name_to_create, rgw_conn, each_user
                 )
-                if config.test_ops.get("enable_version", False):
+                if config.test_ops.get("enable_version", False) or bc==0:
                     log.info("enable bucket version")
                     reusable.enable_versioning(
                         bucket, rgw_conn, each_user, write_bucket_io_info
@@ -185,33 +185,33 @@ def test_exec(config, ssh_con):
                     if status is None:
                         raise TestExecError("copy object failed")
 
-            # delete objects
-            if config.test_ops.get("delete_bucket_object", False):
-                if config.test_ops.get("enable_version", False):
-                    for name, path in objects_created_list:
-                        reusable.delete_version_object(
-                            bucket, name, path, rgw_conn, each_user
-                        )
-                else:
-                    reusable.delete_objects(bucket)
+                # delete objects
+                if config.test_ops.get("delete_bucket_object", False):
+                    if config.test_ops.get("enable_version", False):
+                        for name, path in objects_created_list:
+                            reusable.delete_version_object(
+                                bucket, name, path, rgw_conn, each_user
+                            )
+                    else:
+                        reusable.delete_objects(bucket)
 
-            # start kafka broker and consumer
-            event_record_path = "/tmp/event_record"
-            start_consumer = notification.start_kafka_broker_consumer(
-                topic_name, event_record_path
-            )
-            if start_consumer is False:
-                raise TestExecError("Kafka consumer not running")
-
-            # verify all the attributes of the event record. if event not received abort testcase
-            log.info("verify event record attributes")
-            verify = notification.verify_event_record(
-                event, bucket_name_to_create, event_record_path, ceph_version_name
-            )
-            if verify is False:
-                raise EventRecordDataError(
-                    "Event record is empty! notification is not seen"
+                # start kafka broker and consumer
+                event_record_path = "/tmp/event_record"
+                start_consumer = notification.start_kafka_broker_consumer(
+                    topic_name, event_record_path
                 )
+                if start_consumer is False:
+                    raise TestExecError("Kafka consumer not running")
+
+                # verify all the attributes of the event record. if event not received abort testcase
+                log.info("verify event record attributes")
+                verify = notification.verify_event_record(
+                    event, bucket_name_to_create, event_record_path, ceph_version_name
+                )
+                if verify is False:
+                    raise EventRecordDataError(
+                        "Event record is empty! notification is not seen"
+                    )
         # put empty bucket notification to remove existing configuration
         if config.test_ops.get("put_empty_bucket_notification", False):
             notification.put_empty_bucket_notification(
