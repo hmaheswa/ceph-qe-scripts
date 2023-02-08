@@ -43,18 +43,15 @@ def create_topic(sns_client, endpoint, ack_type, topic_name, persistent_flag=Fal
     """
     if security_type == "PLAINTEXT":
         endpoint_args = (
-            "push-endpoint="
-            + endpoint
-            + "://localhost&verify-ssl=False&kafka-ack-level="
-            + ack_type
+            'push-endpoint=kafka://localhost:9092&use-ssl=False&verify-ssl=False&kafka-ack-level='+ack_type+'&persistent=true&mechanism='+mechanism
         )
     elif security_type == "SSL":
         endpoint_args = (
-            'push-endpoint=kafka://localhost:9093&use-ssl=true&verify-ssl=false&kafka-ack-level='+ack_type+'&ca-location=/tmp/y-ca.crt'
+            'push-endpoint=kafka://localhost:9093&use-ssl=true&verify-ssl=false&kafka-ack-level='+ack_type+'&ca-location=/usr/local/kafka/y-ca.crt'
         )
     elif security_type == "SASL_SSL":
         endpoint_args = (
-            'push-endpoint=kafka://alice:alice-secret@localhost:9094&use-ssl=true&verify-ssl=false&kafka-ack-level='+ack_type+'&ca-location=/tmp/y-ca.crt&mechanism='+mechanism
+            'push-endpoint=kafka://alice:alice-secret@localhost:9094&use-ssl=true&verify-ssl=false&kafka-ack-level='+ack_type+'&ca-location=/usr/local/kafka/y-ca.crt&mechanism='+mechanism
         )
     elif security_type == "SASL_PLAINTEXT":
         endpoint_args = (
