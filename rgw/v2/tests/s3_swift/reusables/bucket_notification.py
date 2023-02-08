@@ -36,17 +36,30 @@ def start_kafka_broker_consumer(topic_name, event_record_path):
     return start_consumer_kafka
 
 
-def create_topic(sns_client, endpoint, ack_type, topic_name, persistent_flag=False):
+def create_topic(sns_client, endpoint, ack_type, topic_name, persistent_flag=False, security_type="PLAINTEXT", mechanism="PLAIN"):
     """
     to create topic with specified endpoint , ack_level
     return: topic ARN
     """
-    endpoint_args = (
-        "push-endpoint="
-        + endpoint
-        + "://localhost&verify-ssl=False&kafka-ack-level="
-        + ack_type
-    )
+    if security_type == "PLAINTEXT":
+        endpoint_args = (
+            "push-endpoint="
+            + endpoint
+            + "://localhost&verify-ssl=False&kafka-ack-level="
+            + ack_type
+        )
+    elif security_type == "SSL":
+        endpoint_args = (
+            'push-endpoint=kafka://localhost:9093&use-ssl=true&verify-ssl=false&kafka-ack-level='+ack_type+'&ca-location=/tmp/y-ca.crt'
+        )
+    elif security_type == "SASL_SSL":
+        endpoint_args = (
+            'push-endpoint=kafka://alice:alice-secret@localhost:9094&use-ssl=true&verify-ssl=false&kafka-ack-level='+ack_type+'&ca-location=/tmp/y-ca.crt&mechanism='+mechanism
+        )
+    elif security_type == "SASL_PLAINTEXT":
+        endpoint_args = (
+            'push-endpoint=kafka://alice:alice-secret@localhost:9095&use-ssl=False&verify-ssl=False&kafka-ack-level='+ack_type+'&persistent=true&mechanism='+mechanism
+        )
     if persistent_flag:
         endpoint_args = endpoint_args + "&persistent=true"
     attributes = {
@@ -268,13 +281,15 @@ class NotificationService:
         ack_type = self.config.test_ops.get("ack_type")
         topic_id = str(uuid.uuid4().hex[:16])
         persistent = False
-        topic_name = "cephci-kafka-" + ack_type + "-ack-type-" + topic_id
+        security_type = config.test_ops.get("security_type", "PLAINTEXT")
+        mechanism = config.test_ops.get("mechanism", "PLAIN")
+        topic_name = f"cephci-kafka-{security_type}-{mechanism}-{ack_type}-ack-type-{topic_id}"
         log.info(f"creating a topic with {endpoint} endpoint with ack type {ack_type}")
         if self.config.test_ops.get("persistent_flag", False):
             log.info("topic with peristent flag enabled")
             persistent = self.config.test_ops.get("persistent_flag")
-        topic = create_topic(
-            self.rgw_sns_conn, endpoint, ack_type, topic_name, persistent
+        topic = notification.create_topic(
+            rgw_sns_conn, endpoint, ack_type, topic_name, persistent, security_type, mechanism
         )
         self.bucket_topic_map[bucket_name] = self.__class__.topic_detials(
             topic_name, events
