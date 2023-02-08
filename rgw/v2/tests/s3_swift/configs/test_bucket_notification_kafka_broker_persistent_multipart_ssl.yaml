@@ -12,10 +12,10 @@ config:
   create_topic: true
   get_topic_info: true
   endpoint: kafka
-  ack_type: none
+  persistent_flag: true
+  ack_type: broker
   put_get_bucket_notification: true
   event_type: Multipart
-  upload_type: mulitpart
-  delete_bucket_object: false
-  security_type: SASL_SSL
-  mechanism: SCRAM-SHA-256
+  upload_type: multipart
+  delete_bucket_object: true
+  security_type: SSL
