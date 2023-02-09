@@ -21,7 +21,7 @@ config:
   delete_bucket_object: false
   security_types:
     PLAINTEXT:
-      []
+      - PLAIN
     SASL_PLAINTEXT:
       - PLAIN
       - SCRAM-SHA-256
@@ -29,4 +29,4 @@ config:
       - PLAIN
       - SCRAM-SHA-256
     SSL:
-      []
+      - PLAIN
