@@ -161,6 +161,7 @@ def test_exec(config, ssh_con):
                         log.info("s3 object path: %s" % s3_object_path)
                         if config.test_ops.get("upload_type") == "multipart" or oc%2==0:
                             log.info("upload type: multipart")
+                            config.obj_size = 6000000
                             reusable.upload_mutipart_object(
                                 s3_object_name,
                                 bucket,
