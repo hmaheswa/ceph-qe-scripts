@@ -62,7 +62,7 @@ def test_exec(config, ssh_con):
     ceph_conf = CephConfOp(ssh_con)
     rgw_service = RGWService()
     default_security_type = {
-        "PLAINTEXT" : []
+        "PLAINTEXT" : ["PLAIN"]
     }
     security_types = config.test_ops.get("security_types", default_security_type)
 
@@ -99,7 +99,7 @@ def test_exec(config, ssh_con):
                     )
                 
                 topics = []
-                for security_type, mechanisms in security_types:
+                for security_type, mechanisms in security_types.items():
                     for mechanism in mechanisms:
                         # create topic with endpoint
                         if config.test_ops["create_topic"] is True:
@@ -226,8 +226,8 @@ def test_exec(config, ssh_con):
                     bucket_name_to_create,
                 )
 
-        # delete topic logs on kafka broker
-        notification.del_topic_from_kafka_broker(topic_name)
+            # delete topic logs on kafka broker
+            notification.del_topic_from_kafka_broker(topic_name)
 
     # check sync status if a multisite cluster
     reusable.check_sync_status()
