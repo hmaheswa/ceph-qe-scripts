@@ -61,6 +61,10 @@ def test_exec(config, ssh_con):
     io_info_initialize.initialize(basic_io_structure.initial())
     ceph_conf = CephConfOp(ssh_con)
     rgw_service = RGWService()
+    default_security_type = {
+        "PLAINTEXT" : []
+    }
+    security_types = config.test_ops.get("security_types", default_security_type)
 
     # create user
     all_users_info = s3lib.create_users(config.user_count)
@@ -93,53 +97,55 @@ def test_exec(config, ssh_con):
                     reusable.enable_versioning(
                         bucket, rgw_conn, each_user, write_bucket_io_info
                     )
+                
+                topics = []
+                for security_type, mechanisms in security_types:
+                    for mechanism in mechanisms:
+                        # create topic with endpoint
+                        if config.test_ops["create_topic"] is True:
+                            endpoint = config.test_ops.get("endpoint")
+                            ack_type = config.test_ops.get("ack_type")
+                            topic_id = str(uuid.uuid4().hex[:16])
+                            persistent = False
+                            topic_name = f"cephci-kafka-{security_type}-{mechanism}-{ack_type}-ack-type-{topic_id}"
+                            log.info(
+                                f"creating a topic with {endpoint} endpoint with ack type {ack_type}"
+                            )
+                            if config.test_ops.get("persistent_flag", False):
+                                log.info("topic with peristent flag enabled")
+                                persistent = config.test_ops.get("persistent_flag")
+                            topic = notification.create_topic(
+                                rgw_sns_conn, endpoint, ack_type, topic_name, persistent, security_type, mechanism
+                            )
+                            topics.append(topic_name)
 
-                # create topic with endpoint
-                if config.test_ops["create_topic"] is True:
-                    endpoint = config.test_ops.get("endpoint")
-                    ack_type = config.test_ops.get("ack_type")
-                    security_type = config.test_ops.get("security_type", "PLAINTEXT")
-                    mechanism = config.test_ops.get("mechanism", "PLAIN")
-                    topic_id = str(uuid.uuid4().hex[:16])
-                    persistent = False
-                    topic_name = f"cephci-kafka-{security_type}-{mechanism}-{ack_type}-ack-type-{topic_id}"
-                    log.info(
-                        f"creating a topic with {endpoint} endpoint with ack type {ack_type}"
-                    )
-                    if config.test_ops.get("persistent_flag", False):
-                        log.info("topic with peristent flag enabled")
-                        persistent = config.test_ops.get("persistent_flag")
-                    topic = notification.create_topic(
-                        rgw_sns_conn, endpoint, ack_type, topic_name, persistent, security_type, mechanism
-                    )
+                        # get topic attributes
+                        if config.test_ops.get("get_topic_info", False):
+                            log.info("get topic attributes")
+                            get_topic_info = notification.get_topic(
+                                rgw_sns_conn, topic, ceph_version_name
+                            )
 
-                # get topic attributes
-                if config.test_ops.get("get_topic_info", False):
-                    log.info("get topic attributes")
-                    get_topic_info = notification.get_topic(
-                        rgw_sns_conn, topic, ceph_version_name
-                    )
+                        # put bucket notification with topic configured for event
+                        if config.test_ops["put_get_bucket_notification"] is True:
+                            event = config.test_ops.get("event_type")
+                            events = ["s3:ObjectCreated:*", "s3:ObjectRemoved:*"]
+                            notification_name = "notification-" + str(event)
+                            notification.put_bucket_notification(
+                                rgw_s3_client,
+                                bucket_name_to_create,
+                                notification_name,
+                                topic,
+                                events,
+                            )
 
-                # put bucket notification with topic configured for event
-                if config.test_ops["put_get_bucket_notification"] is True:
-                    event = config.test_ops.get("event_type")
-                    events = ["s3:ObjectCreated:*", "s3:ObjectRemoved:*"]
-                    notification_name = "notification-" + str(event)
-                    notification.put_bucket_notification(
-                        rgw_s3_client,
-                        bucket_name_to_create,
-                        notification_name,
-                        topic,
-                        events,
-                    )
-
-                    # get bucket notification
-                    log.info(
-                        f"get bucket notification for bucket : {bucket_name_to_create}"
-                    )
-                    notification.get_bucket_notification(
-                        rgw_s3_client, bucket_name_to_create
-                    )
+                            # get bucket notification
+                            log.info(
+                                f"get bucket notification for bucket : {bucket_name_to_create}"
+                            )
+                            notification.get_bucket_notification(
+                                rgw_s3_client, bucket_name_to_create
+                            )
 
                 # create objects
                 if config.test_ops["create_object"] is True:
@@ -195,29 +201,30 @@ def test_exec(config, ssh_con):
                     else:
                         reusable.delete_objects(bucket)
 
-                # start kafka broker and consumer
-                event_record_path = "/tmp/event_record"
-                start_consumer = notification.start_kafka_broker_consumer(
-                    topic_name, event_record_path
-                )
-                if start_consumer is False:
-                    raise TestExecError("Kafka consumer not running")
-
-                # verify all the attributes of the event record. if event not received abort testcase
-                log.info("verify event record attributes")
-                verify = notification.verify_event_record(
-                    event, bucket_name_to_create, event_record_path, ceph_version_name
-                )
-                if verify is False:
-                    raise EventRecordDataError(
-                        "Event record is empty! notification is not seen"
+                for topic_name in topics:
+                    # start kafka broker and consumer
+                    event_record_path = "/tmp/event_record"
+                    start_consumer = notification.start_kafka_broker_consumer(
+                        topic_name, event_record_path
                     )
-        # put empty bucket notification to remove existing configuration
-        if config.test_ops.get("put_empty_bucket_notification", False):
-            notification.put_empty_bucket_notification(
-                rgw_s3_client,
-                bucket_name_to_create,
-            )
+                    if start_consumer is False:
+                        raise TestExecError("Kafka consumer not running")
+
+                    # verify all the attributes of the event record. if event not received abort testcase
+                    log.info("verify event record attributes")
+                    verify = notification.verify_event_record(
+                        config.test_ops.get("event_type"), bucket_name_to_create, event_record_path, ceph_version_name
+                    )
+                    if verify is False:
+                        raise EventRecordDataError(
+                            "Event record is empty! notification is not seen"
+                        )
+            # put empty bucket notification to remove existing configuration
+            if config.test_ops.get("put_empty_bucket_notification", False):
+                notification.put_empty_bucket_notification(
+                    rgw_s3_client,
+                    bucket_name_to_create,
+                )
 
         # delete topic logs on kafka broker
         notification.del_topic_from_kafka_broker(topic_name)
