@@ -88,7 +88,7 @@ def test_exec(config, ssh_con):
                 bucket = reusable.create_bucket(
                     bucket_name_to_create, rgw_conn, each_user
                 )
-                if config.test_ops.get("enable_version", False) or bc==0:
+                if config.test_ops.get("enable_version", False) or bc%2 ==0:
                     log.info("enable bucket version")
                     reusable.enable_versioning(
                         bucket, rgw_conn, each_user, write_bucket_io_info
@@ -153,7 +153,7 @@ def test_exec(config, ssh_con):
                         log.info("s3 object name: %s" % s3_object_name)
                         s3_object_path = os.path.join(TEST_DATA_PATH, s3_object_name)
                         log.info("s3 object path: %s" % s3_object_path)
-                        if config.test_ops.get("upload_type") == "multipart":
+                        if config.test_ops.get("upload_type") == "multipart" or oc%2==0:
                             log.info("upload type: multipart")
                             reusable.upload_mutipart_object(
                                 s3_object_name,

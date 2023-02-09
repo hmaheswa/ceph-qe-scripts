@@ -31,7 +31,7 @@ def start_kafka_broker_consumer(topic_name, event_record_path):
     KAFKA_HOME = "/usr/local/kafka"
 
     # start kafka consumer
-    cmd = f"sudo {KAFKA_HOME}/bin/kafka-console-consumer.sh --bootstrap-server kafka://localhost:9092 --from-beginning --topic {topic_name} --timeout-ms 30000 >> {event_record_path}"
+    cmd = f"sudo {KAFKA_HOME}/bin/kafka-console-consumer.sh --bootstrap-server kafka://localhost:9092 --from-beginning --topic {topic_name} --timeout-ms 60000 >> {event_record_path}"
     start_consumer_kafka = utils.exec_shell_cmd(cmd)
     return start_consumer_kafka
 
