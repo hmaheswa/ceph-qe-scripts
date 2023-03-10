@@ -129,7 +129,7 @@ class CephConfigSet:
         out = json.loads(out_ps)
         daemon_name_list = []
         for node in out:
-            daemon_name = node.get("daemon_name")
+            daemon_name = node.get("daemon_type")
             daemon_name_list.append(daemon_name)
 
         self.who = "client." + daemon_name_list[0]  # naming convention as ceph conf
