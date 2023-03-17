@@ -217,7 +217,7 @@ def test_exec(config, ssh_con):
             {
                 "obj": rgw_tenant2_user1_c,
                 "resource": "get_object",
-                "kwargs": dict(Bucket=bucket_name_verify_policy, Key=s3_object_name),
+                "kwargs": dict(Bucket=bucket_name_verify_policy, Key=s3_object_name, Policy='string'),
             }
         )
         log.info(object_get_status)
