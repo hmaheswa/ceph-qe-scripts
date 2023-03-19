@@ -92,7 +92,8 @@ class Auth(object):
         """
         log.info("performing authentication using client module")
         additional_config = Config(
-            signature_version=config.get("signature_version", None)
+            signature_version=config.get("signature_version", None),
+            parameter_validation=config.get("parameter_validation", True)
         )
         rgw = boto3.client(
             "s3",

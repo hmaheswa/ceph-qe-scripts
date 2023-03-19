@@ -38,6 +38,7 @@ from v2.utils.log import configure_logging
 from v2.utils.test_desc import AddTestInfo
 from v2.utils.utils import HttpResponseParser
 
+
 log = logging.getLogger()
 
 
@@ -103,7 +104,10 @@ def test_exec(config, ssh_con):
     rgw_tenant1_user1 = tenant1_user1_auth.do_auth()
     rgw_tenant1_user1_c = tenant1_user1_auth.do_auth_using_client()
     rgw_tenant2_user1 = tenant2_user1_auth.do_auth()
-    rgw_tenant2_user1_c = tenant2_user1_auth.do_auth_using_client()
+    client_config = dict(
+        parameter_validation=False
+    )
+    rgw_tenant2_user1_c = tenant2_user1_auth.do_auth_using_client(client_config)
     bucket_name1 = utils.gen_bucket_name_from_userid(
         tenant1_user1_info["user_id"], rand_no=1
     )
