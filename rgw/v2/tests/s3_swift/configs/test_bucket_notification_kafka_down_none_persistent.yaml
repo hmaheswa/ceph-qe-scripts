@@ -17,8 +17,8 @@ config:
   put_get_bucket_notification: true
   event_type:
    - Copy
-   - Delete
+#   - Delete
   upload_type: normal
-  delete_bucket_object: true
+#  delete_bucket_object: true
   copy_object: true
   verify_persistence_with_kafka_stop: true

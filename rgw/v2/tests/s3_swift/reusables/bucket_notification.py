@@ -24,6 +24,8 @@ Filter = {
 
 
 def get_affixed_obj_name(config, obj_name):
+    if config.test_ops.get("Filter", False) is False:
+        return obj_name
     filter_rules = config.test_ops["Filter"]["Key"]["FilterRules"]
     for rule in filter_rules:
         if rule["Name"] == "prefix":

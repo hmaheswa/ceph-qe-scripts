@@ -72,8 +72,8 @@ def test_exec(config, ssh_con):
     ceph_conf = CephConfOp(ssh_con)
     rgw_service = RGWService()
 
-    if config.test_ops.get("Filter", False) is False:
-        config.test_ops["Filter"] = notification.Filter
+    # if config.test_ops.get("Filter", False) is False:
+    #     config.test_ops["Filter"] = notification.Filter
 
     if config.enable_resharding and config.sharding_type == "dynamic":
         reusable.set_dynamic_reshard_ceph_conf(config, ssh_con)
