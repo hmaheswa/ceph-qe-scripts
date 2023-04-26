@@ -144,9 +144,10 @@ def test_exec(config, ssh_con):
                     }
                 event_types = config.test_ops.get("event_type")
                 # Adding event_type Put as default
-                event_types = ["Put"]
                 if type(event_types) == str:
-                    event_types += [event_types]
+                    event_types = [event_types]
+                if "Copy" in event_types or "Delete" in event_types:
+                    event_types = ["Put"] + event_types
                 security_type = config.test_ops.get("security_type", "PLAINTEXT")
                 mechanism = config.test_ops.get("mechanism", None)
                 # create topic with endpoint
