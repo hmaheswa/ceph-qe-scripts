@@ -143,9 +143,9 @@ def test_exec(config, ssh_con):
                         "uid": each_user["user_id"],
                     }
                 event_types = config.test_ops.get("event_type")
-                # Adding event_type Put as default
                 if type(event_types) == str:
                     event_types = [event_types]
+                # Adding event_type Put as default for
                 if "Copy" in event_types or "Delete" in event_types:
                     event_types = ["Put"] + event_types
                 security_type = config.test_ops.get("security_type", "PLAINTEXT")
@@ -261,6 +261,9 @@ def test_exec(config, ssh_con):
                                 config.obj_size,
                                 bucket,
                                 TEST_DATA_PATH,
+                            )
+                            objects_created_list.append(
+                                (s3_object_name, s3_object_path)
                             )
                         else:
                             log.info("upload type: normal")
