@@ -64,6 +64,12 @@ def validate_prefix_rule(bucket, config):
             )
         else:
             raise AssertionError("lc validation for object transition failed")
+        if config.test_ops.get("conflict_transition_actions"):
+            log.info(
+                "Transition to latest storage class in lc config taken place"
+                + " when there is a conflict between transition rules having same days and same prefix"
+                + " but different storage class"
+            )
     else:
         log.info("Start the validation of LC expiration.")
 

@@ -560,7 +560,7 @@ def put_get_bucket_lifecycle_test(
     if not upload_end_time:
         upload_end_time = time.time()
     time_diff = math.ceil(upload_end_time - upload_start_time)
-    time_limit = upload_start_time + (config.rgw_lc_debug_interval * 20)
+    time_limit = upload_start_time + (config.rgw_lc_debug_interval * 4)
     for rule in config.lifecycle_conf:
         if rule.get("Expiration", {}).get("Date", False):
             # todo: need to get the interval value from yaml file
@@ -1417,10 +1417,10 @@ def prepare_for_bucket_lc_transition(config):
         utils.exec_shell_cmd(f"ceph osd pool application enable {ec_pool_name} rgw")
     else:
         utils.exec_shell_cmd(
-            f"radosgw-admin zonegroup placement add  --rgw-zonegroup default --placement-id default-placement --storage-class {storage_class}"
+            f"radosgw-admin zonegroup placement add  --rgw-zonegroup shared --placement-id default-placement --storage-class {storage_class}"
         )
         utils.exec_shell_cmd(
-            f"radosgw-admin zone placement add --rgw-zone default --placement-id default-placement --storage-class {storage_class} --data-pool {pool_name}"
+            f"radosgw-admin zone placement add --rgw-zone primary --placement-id default-placement --storage-class {storage_class} --data-pool {pool_name}"
         )
         utils.exec_shell_cmd(f"ceph osd pool create {pool_name}")
         utils.exec_shell_cmd(f"ceph osd pool application enable {pool_name} rgw")
@@ -1432,10 +1432,10 @@ def prepare_for_bucket_lc_transition(config):
                 f"ceph osd pool application enable {second_pool_name} rgw"
             )
             utils.exec_shell_cmd(
-                f"radosgw-admin zonegroup placement add  --rgw-zonegroup default --placement-id default-placement --storage-class {second_storage_class}"
+                f"radosgw-admin zonegroup placement add  --rgw-zonegroup shared --placement-id default-placement --storage-class {second_storage_class}"
             )
             utils.exec_shell_cmd(
-                f"radosgw-admin zone placement add --rgw-zone default --placement-id default-placement --storage-class {second_storage_class} --data-pool {second_pool_name}"
+                f"radosgw-admin zone placement add --rgw-zone primary --placement-id default-placement --storage-class {second_storage_class} --data-pool {second_pool_name}"
             )
 
 

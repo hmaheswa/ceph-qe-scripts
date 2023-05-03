@@ -16,17 +16,18 @@ config:
     create_object: true
     enable_versioning: false
     version_count: 1
+    conflict_btw_exp_transition: True
   lifecycle_conf:
     - ID: rule1
       Filter:
           Prefix: key1
       Status: Enabled
       Transitions:
-        - Days: 20
+        - Days: 4
           StorageClass: cold
     - ID: rule2
       Filter:
           Prefix: key1
       Status: Enabled
       Expiration:
-        Days: 20
+        Days: 4
