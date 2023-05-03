@@ -22,7 +22,7 @@ config:
           Prefix: key1
       Status: Enabled
       Transitions:
-        - Days: 2
+        - Days: 20
           StorageClass: cold
     - ID: rule2
       Filter:
