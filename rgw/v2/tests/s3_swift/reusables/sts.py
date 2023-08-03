@@ -160,7 +160,7 @@ def assume_role(sts_client, **kwargs):
 class Keycloak:
     def __init__(
         self,
-        client_id="sts_client",
+        client_id="account",
         client_secret="client_secret1",
         ip_addr="localhost",
         attributes=None,
@@ -181,13 +181,32 @@ class Keycloak:
         out = utils.exec_shell_cmd("sudo yum install -y jq")
         if out is False:
             raise Exception("jq installation failed")
-        self.create_client()
-        self.add_service_account_roles_to_client(client_name=self.client_id)
-        self.set_audience_in_token(self.client_id, "set_audience_scope", "set_audience_protocol_mapper")
-        self.set_session_tags_in_token(self.client_id)
+
+        # self.create_client()
+
+        # client_representation = {
+        #     "standardFlowEnabled": "true",
+        #     "directAccessGrantsEnabled": "true",
+        #     "publicClient": "false",
+        #     "secret": "client_secret1",
+        #     "serviceAccountsEnabled": "true",
+        # }
+        # id = self.get_keycloak_client(client_id)["id"]
+        # self.update_client(id=id, client_representation=client_representation)
+        # self.add_service_account_roles_to_client(client_name=self.client_id)
+        # self.set_audience_in_token(self.client_id, "set_audience_scope", "set_audience_protocol_mapper")
+        # self.set_session_tags_in_token(self.client_id)
+        # attributes = {
+        #     "https://aws.amazon.com/tags":
+        #     {
+        #         "principal_tags":
+        #         {
+        #             "Department": "Engineering"
+        #         }
+        #     }
+        # }
+        # self.add_keycloak_user_attributes(attributes=attributes, username="admin")
         # self.realm_keys_workaround()
-        if attributes:
-            self.add_keycloak_user_attributes(attributes=attributes, username="admin")
 
     # todo: add --show-error and --fail flags to curl commands
     def install_keycloak(self):
@@ -213,6 +232,9 @@ class Keycloak:
             out = utils.exec_shell_cmd(
                 f'curl -k -v -X POST -H "Content-Type: application/x-www-form-urlencoded" -d "scope=openid" -d "grant_type=client_credentials" -d "client_id={self.client_id}" -d "client_secret={self.client_secret}" "http://{self.ip_addr}:8180/realms/master/protocol/openid-connect/token" | jq -r .access_token'
             )
+            # out = utils.exec_shell_cmd(
+            #     f'curl -k -v -X POST -H "Content-Type: application/x-www-form-urlencoded" -d "scope=openid" -d "grant_type=client_credentials" -d "client_id=account" -d "client_secret=8mpotKOSQcDNuBQCEpHCTU3FItxe1hCO" "http://{self.ip_addr}:8180/realms/master/protocol/openid-connect/token" | jq -r .access_token'
+            # )
         if out is False:
             raise Exception("keycloack deployment failed")
         return out.strip()
@@ -248,6 +270,15 @@ class Keycloak:
         )
         if out is False:
             raise Exception("keycloack deployment failed")
+        return out
+
+    def update_client(self, id, client_representation=None):
+        access_token = self.get_keycloak_web_acccess_token(initial_token=True)
+        out = utils.exec_shell_cmd(
+            f'curl -X PUT -H "Content-Type: application/json" -H "Authorization: bearer {access_token}" http://{self.ip_addr}:8180/admin/realms/master/clients/{id}  -d \'{json.dumps(client_representation)}\''
+        )
+        if out is False:
+            raise Exception("client updation failed")
         return out
 
     def get_keycloak_roles(self):
@@ -316,16 +347,16 @@ class Keycloak:
         return out
 
     def add_keycloak_user_attributes(self, attributes, username="admin"):
-        access_token = self.get_keycloak_web_acccess_token()
         admin_user = self.get_keycloak_user(username)[0]
         user_id = admin_user["id"]
-        existing_attributes = admin_user["attributes"]
-        existing_attributes.update(attributes)
+        # existing_attributes = admin_user["attributes"]
+        # existing_attributes.update(attributes)
+        access_token = self.get_keycloak_web_acccess_token()
         out = utils.exec_shell_cmd(
-            f'curl -X PUT -H "Content-Type: application/json" -H "Authorization: bearer {access_token}" http://{self.ip_addr}:8180/admin/realms/master/users/{user_id} -d \'{{"attributes":{json.dumps(existing_attributes)}}}\''
+            f'curl -X PUT -H "Content-Type: application/json" -H "Authorization: bearer {access_token}" http://{self.ip_addr}:8180/admin/realms/master/users/{user_id} -d \'{{"attributes":{json.dumps(attributes)}}}\''
         )
         if out is False:
-            raise Exception("keycloack deployment failed")
+            raise Exception("put user attributes failed")
         return out
 
     def enable_client_authentication(self, client_name="account"):
@@ -449,7 +480,7 @@ class Keycloak:
         return out
 
     def get_keycloak_client(self, client_name=None):
-        access_token = self.get_keycloak_web_acccess_token()
+        access_token = self.get_keycloak_web_acccess_token(initial_token=True)
         out = utils.exec_shell_cmd(
             f'curl -H "Content-Type: application/json" -H "Authorization: bearer {access_token}" http://{self.ip_addr}:8180/admin/realms/master/clients'
         )

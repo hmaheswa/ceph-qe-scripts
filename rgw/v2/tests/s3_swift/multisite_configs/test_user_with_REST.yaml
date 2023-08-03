@@ -1,1 +1,2 @@
-../configs/test_user_with_REST.yaml
+config:
+  user_count: 2

@@ -1,1 +1,4 @@
-../configs/test_bucket_request_payer.yaml
+# TC Ids - CEPH-10344, CEPH-10346, CEPH-10351
+config:
+  user_count: 1
+  bucket_count: 10

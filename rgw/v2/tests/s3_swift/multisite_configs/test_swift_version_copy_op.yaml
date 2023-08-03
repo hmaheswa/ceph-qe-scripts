@@ -1,1 +1,10 @@
-../configs/test_swift_version_copy_op.yaml
+# test case id: CEPH-10646
+config:
+  container_count: 2
+  objects_count: 100
+  version_count: 4
+  version_enable: true
+  copy_version_object: true
+  objects_size_range:
+    min: 5
+    max: 15

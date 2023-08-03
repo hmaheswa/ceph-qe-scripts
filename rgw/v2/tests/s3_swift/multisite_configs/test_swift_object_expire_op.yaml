@@ -1,1 +1,8 @@
-../configs/test_swift_object_expire_op.yaml
+# test case id: CEPH-9718
+config:
+  container_count: 2
+  objects_count: 100
+  object_expire: true
+  objects_size_range:
+    min: 5
+    max: 15

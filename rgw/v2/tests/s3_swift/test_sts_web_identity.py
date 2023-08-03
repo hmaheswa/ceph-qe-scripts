@@ -8,7 +8,7 @@ Usage: test_sts_using_boto.py -c <input_yaml>
 Operation:
     s1: Create 2 Users.
         user1 will be the owner and will give permisison to create bucket to user2
-    s2: add caps to user1 for creating create role - use radosgw-admin
+    s2: add caps to user1 for create role - use radosgw-admin
     s3: create iam_client object using user1 credentials
     s4: gen a policy_doc added with user2 uid added in it.
     s5: create role
@@ -59,7 +59,7 @@ def test_exec(config, ssh_con):
     rgw_service = RGWService()
     local_ip_addr = utils.get_localhost_ip_address()
     keycloack = Keycloak(
-        client_id="sts_client", client_secret="client_secret1", ip_addr=local_ip_addr
+        ip_addr=local_ip_addr
     )
 
     if config.sts is None:
@@ -99,7 +99,7 @@ def test_exec(config, ssh_con):
     jwt = keycloack.introspect_token(web_token)
     policy_document = json.dumps(config.sts["policy_document"]).replace(" ", "")
     policy_document = policy_document.replace("ip_addr", local_ip_addr)
-    policy_document = policy_document.replace("aud_claim", "account")
+    policy_document = policy_document.replace("aud_claim", jwt["aud"])
     policy_document = policy_document.replace("azp_claim", jwt["azp"])
     policy_document = policy_document.replace("sub_claim", jwt["sub"])
     log.info(policy_document)
