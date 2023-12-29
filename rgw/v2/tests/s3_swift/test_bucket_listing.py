@@ -206,14 +206,6 @@ def test_exec(config, ssh_con):
 
                 # radoslist listing of the bucket
                 if config.test_ops.get("create_object", None) is not None:
-                    if config.test_ops["radoslist"] is True:
-                        log.info("executing the command radosgw-admin bucket radoslist")
-                        radoslist = utils.exec_shell_cmd(
-                            "radosgw-admin bucket radoslist --bucket %s"
-                            % bucket_name_to_create
-                        )
-                        if radoslist is False:
-                            raise TestExecError("Radoslist command execution failed")
 
                     # get the configuration parameter - rgw_bucket_index_max_aio
                     ceph_version_id, ceph_version_name = utils.get_ceph_version()
@@ -232,6 +224,7 @@ def test_exec(config, ssh_con):
                         max_aio = max_aio_output.rstrip("\n")
 
                     # bucket stats to get the num_objects of the bucket
+                    log.info("sleeping for 30 seconds before executing bucket stats")
                     time.sleep(30)
                     bucket_stats = utils.exec_shell_cmd(
                         "radosgw-admin bucket stats --bucket  %s"
@@ -295,6 +288,15 @@ def test_exec(config, ssh_con):
                         )
                     else:
                         raise TestExecError("object listing via boto failed")
+
+                    if config.test_ops["radoslist"] is True:
+                        log.info("executing the command radosgw-admin bucket radoslist")
+                        radoslist = utils.exec_shell_cmd(
+                            "radosgw-admin bucket radoslist --bucket %s"
+                            % bucket_name_to_create
+                        )
+                        if radoslist is False:
+                            raise TestExecError("Radoslist command execution failed")
 
             if config.test_ops.get("list_bucket_with_uid", None) is True:
                 log.info(f"each user is {each_user}")

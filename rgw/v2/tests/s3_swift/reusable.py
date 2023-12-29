@@ -1146,9 +1146,13 @@ def time_taken_to_execute_command(cmd):
     :param cmd: cmd
     """
     output = json.loads(utils.exec_shell_cmd(cmd))
+    log.info("converting bool values to string")
     for op in output:
-        op.update({"exists": str(op["exists"])})
-        op["meta"].update({"appendable": str(op["meta"]["appendable"])})
+        exists = str(op["exists"])
+        op.update({"exists": exists})
+        appendable = str(op["meta"]["appendable"])
+        op["meta"].update({"appendable": appendable})
+    log.info("processing completed")
     return str(output)
 
 
@@ -1163,10 +1167,10 @@ def time_to_list_via_radosgw(bucket_name, listing):
         cmd = "radosgw-admin bucket list --max-entries=100000 --bucket=%s " % (
             bucket_name
         )
-        time_taken = timeit.timeit(
-            stmt=time_taken_to_execute_command(cmd), globals=globals()
-        )
-        return time_taken
+        listing_start_time = time.time()
+        utils.exec_shell_cmd(cmd)
+        listing_end_time = time.time()
+        return listing_end_time - listing_start_time
 
     if listing == "unordered":
         log.info(
@@ -1176,10 +1180,10 @@ def time_to_list_via_radosgw(bucket_name, listing):
             "radosgw-admin bucket list --max-entries=100000 --bucket=%s --allow-unordered"
             % (bucket_name)
         )
-        time_taken = timeit.timeit(
-            stmt=time_taken_to_execute_command(cmd), globals=globals()
-        )
-        return time_taken
+        listing_start_time = time.time()
+        utils.exec_shell_cmd(cmd)
+        listing_end_time = time.time()
+        return listing_end_time - listing_start_time
 
 
 def time_to_list_via_boto(bucket_name, rgw):
@@ -1192,9 +1196,13 @@ def time_to_list_via_boto(bucket_name, rgw):
     )
 
     log.info("listing all objects in bucket: %s" % bucket)
-    objects = s3lib.resource_op({"obj": bucket, "resource": "objects", "args": None})
-    time_taken = timeit.timeit(lambda: bucket.objects.all(), globals=globals())
-    return time_taken
+    listing_start_time = time.time()
+    all_objects = bucket.objects.all()
+    log.info(f"all objects: {all_objects}")
+    for obj in all_objects:
+        log.info("object_name: %s" % obj.key)
+    listing_end_time = time.time()
+    return listing_end_time - listing_start_time
 
 
 def check_sync_status(retry=None, delay=None):
