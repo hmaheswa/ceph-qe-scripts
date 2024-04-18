@@ -77,8 +77,8 @@ def test_exec(config, ssh_con):
             )
             for oc, size in list(config.mapped_sizes.items()):
                 config.obj_size = size
-                key_name = utils.gen_s3_object_name(bucket_name, oc)
-                complete_multipart_upload_resp = aws_reusable.upload_multipart_aws(
+                key_name = utils.gen_s3_object_name(bucket_name, 1)
+                complete_multipart_upload_resp = aws_reusable.multipart_object_upload_with_failed_upload_parts(
                     bucket_name,
                     key_name,
                     TEST_DATA_PATH,
@@ -91,6 +91,7 @@ def test_exec(config, ssh_con):
                     )
                 log.info(f"Download multipart object {key_name}")
                 aws_reusable.get_object(bucket_name, key_name, endpoint)
+                aws_reusable.delete_object(bucket_name, key_name, endpoint)
 
         if config.test_ops.get("verify_non_ascii_character_upload", False):
             log.info(f"Object name and body containing non ascii character upload")

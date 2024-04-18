@@ -65,18 +65,26 @@ def test_exec(config, ssh_con):
                 log.info("s3 objects to create: %s" % config.objects_count)
                 for oc, size in list(config.mapped_sizes.items()):
                     config.obj_size = size
-                    s3_object_name = utils.gen_s3_object_name(bucket_name, oc)
+                    log.info(f"--------------iteration number {oc+1}--------------")
+                    s3_object_name = utils.gen_s3_object_name(bucket_name, 1)
                     log.info("s3 object name: %s" % s3_object_name)
                     s3_object_path = os.path.join(TEST_DATA_PATH, s3_object_name)
                     log.info("s3 object path: %s" % s3_object_path)
                     log.info("upload type: normal")
-                    curl_reusable.upload_object(
+                    # curl_reusable.upload_object(
+                    #     curl_auth,
+                    #     bucket_name,
+                    #     s3_object_name,
+                    #     TEST_DATA_PATH,
+                    #     config,
+                    #     Transfer_Encoding=config.test_ops.get("Transfer_Encoding"),
+                    # )
+                    curl_reusable.upload_multipart_object_with_failed_part_upload(
                         curl_auth,
                         bucket_name,
                         s3_object_name,
                         TEST_DATA_PATH,
-                        config,
-                        Transfer_Encoding=config.test_ops.get("Transfer_Encoding"),
+                        config
                     )
                     objects_created_list.append(s3_object_name)
                     if config.test_ops["download_object"] is True:
@@ -90,6 +98,8 @@ def test_exec(config, ssh_con):
                     if config.local_file_delete is True:
                         log.info("deleting local file created after the upload")
                         utils.exec_shell_cmd("rm -rf %s" % s3_object_path)
+
+                    curl_reusable.delete_object(curl_auth, bucket_name, s3_object_name)
             if config.test_ops.get("delete_bucket_object") is True:
                 for obj in objects_created_list:
                     curl_reusable.delete_object(curl_auth, bucket_name, obj)

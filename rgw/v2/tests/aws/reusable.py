@@ -17,6 +17,7 @@ log = logging.getLogger()
 
 sys.path.append(os.path.abspath(os.path.join(__file__, "../../../../")))
 
+from threading import Thread
 import v2.utils.utils as utils
 from v2.lib.aws.resource_op import AWS
 from v2.lib.exceptions import AWSCommandExecError, TestExecError
@@ -111,7 +112,7 @@ def create_multipart_upload(bucket_name, key_name, end_point, ssl=None):
 
 
 def upload_part(
-    bucket_name, key_name, part_number, upload_id, body, end_point, ssl=None
+    bucket_name, key_name, part_number, upload_id, body, end_point, content_length=None, ssl=None
 ):
     """
     Upload part to the key in a bucket
@@ -137,7 +138,7 @@ def upload_part(
     command = upload_part_method.command(
         params=[
             f"--bucket {bucket_name} --key {key_name} --part-number {part_number} --upload-id {upload_id}"
-            f" --body {body} --endpoint-url {end_point}",
+            f" --body {body} --endpoint-url {end_point} {'--content-length '+str(content_length) if content_length else ''}",
             ssl_param,
         ]
     )
@@ -269,7 +270,8 @@ def delete_object(bucket_name, object_name, end_point, ssl=None, versionid=None)
             ]
         )
     try:
-        delete_response = utils.exec_shell_cmd(command)
+        delete_response = utils.exec_shell_cmd(command, debug_info=True)
+        log.info(f"delete_response is {delete_response}")
         if not delete_response:
             raise Exception(f"delete object failed for {bucket_name}")
         return delete_response
@@ -512,3 +514,178 @@ def get_object(bucket_name, object_name, end_point, ssl=None):
         return get_response
     except Exception as e:
         raise AWSCommandExecError(message=str(e))
+
+
+def upload_part_parallely(
+    bucket_name, key_name, part_number, upload_id, body, end_point, mpstructure, content_length=None, ssl=None
+):
+    """
+    Upload part to the key in a bucket
+    Ex: /usr/local/bin/aws s3api upload-part --bucket <bucket_name> --key <key_name> --part-number <part_number>
+        --upload-id <upload_id> --body <body> --endpoint <endpoint_url>
+
+    Args:
+        bucket_name(str): Name of the bucket
+        key_name(str): Name of the object for which part has to be uploaded
+        part_number(int): part number
+        upload_id(str): upload id fetched during initiating multipart upload
+        body(str): part file which needed to be uploaded
+        end_point(str): endpoint
+        ssl:
+    Return:
+        Response of uplaod_part i.e Etag
+    """
+    upload_part_method = AWS(operation="upload-part")
+    if ssl:
+        ssl_param = "-s"
+    else:
+        ssl_param = " "
+    command = upload_part_method.command(
+        params=[
+            f"--bucket {bucket_name} --key {key_name} --part-number {part_number} --upload-id {upload_id}"
+            f" --body {body} --endpoint-url {end_point} {'--content-length '+str(content_length) if content_length else ''}",
+            ssl_param,
+        ]
+    )
+    try:
+        response = utils.exec_shell_cmd(command)
+        if not response:
+            raise Exception(
+                f"Uploading part failed for bucket {bucket_name} with key {key_name} and upload id"
+                f" {upload_id}"
+            )
+        upload_part_resp = json.loads(
+            response
+        )
+        part_info = {"PartNumber": part_number, "ETag": upload_part_resp["ETag"]}
+        mpstructure["Parts"].append(part_info)
+    except Exception as e:
+        return
+
+
+def multipart_object_upload_with_failed_upload_parts(
+    bucket_name,
+    key_name,
+    TEST_DATA_PATH,
+    endpoint,
+    config,
+    append_data=False,
+    append_msg=None,
+):
+    """
+    Args:
+        bucket_name(str): Name of the bucket
+        key_name(str): Name of the object
+        TEST_DATA_PATH(str): Test data path
+        endpoint(str): endpoint url
+        config: configuration used
+        append_data(boolean)
+        append_msg(str)
+    Return:
+        Response of aws complete multipart upload operation
+    """
+    log.info("Create multipart upload")
+    create_mp_upload_resp = create_multipart_upload(bucket_name, key_name, endpoint)
+    upload_id = json.loads(create_mp_upload_resp)["UploadId"]
+
+    log.info(f"object name: {key_name}")
+    object_path = os.path.join(TEST_DATA_PATH, key_name)
+    log.info(f"object path: {object_path}")
+    # object_size = config.obj_size
+    # log.info(f"object_size: {object_size}")
+    # split_size = config.split_size if hasattr(config, "split_size") else 5
+    # log.info(f"split size: {split_size}")
+    # if append_data is True:
+    #     data_info = io_generator(
+    #         object_path,
+    #         object_size,
+    #         op="append",
+    #         **{"message": "\n%s" % append_msg},
+    #     )
+    # else:
+    #     data_info = io_generator(object_path, object_size)
+    # if data_info is False:
+    #     TestExecError("data creation failed")
+
+    mp_dir = os.path.join(TEST_DATA_PATH, key_name + ".mp.parts")
+    obj1_path = mp_dir + "/obj1"
+    obj2_path = mp_dir + "/obj2"
+    log.info(f"mp part dir: {mp_dir}")
+    log.info("making multipart object part dir")
+    mkdir = utils.exec_shell_cmd(f"sudo mkdir {mp_dir}")
+    if mkdir is False:
+        raise TestExecError("mkdir failed creating mp_dir_name")
+    utils.exec_shell_cmd(f"fallocate -l 8MB {obj1_path}")
+    utils.exec_shell_cmd(f"fallocate -l 300MB {obj2_path}")
+    utils.exec_shell_cmd(f"cat {obj1_path} {obj2_path} > {object_path}")
+    parts_list = [obj1_path, obj2_path]
+    # utils.split_file(object_path, split_size, mp_dir + "/")
+    # parts_list = sorted(glob.glob(mp_dir + "/" + "*"))
+    # log.info("parts_list: %s" % parts_list)
+
+    part_number = 1
+    mpstructure = {"Parts": []}
+    log.info("no of parts: %s" % len(parts_list))
+
+    for each_part in parts_list:
+        log.info(f"upload part {part_number} of object: {key_name}")
+
+        if part_number==2:
+            log.info("failed part2 upload")
+
+            t1 = Thread(
+                target=upload_part_parallely,
+                args=(
+                    bucket_name, key_name, part_number, upload_id, "/tmp/test1.txt", endpoint, mpstructure, 102
+                ),
+            )
+            t2 = Thread(
+                target=upload_part_parallely,
+                args=(
+                    bucket_name, key_name, part_number, upload_id, "/tmp/test2.txt", endpoint, mpstructure, 102
+                ),
+            )
+            t3 = Thread(
+                target=upload_part_parallely,
+                args=(
+                    bucket_name, key_name, part_number, upload_id, each_part, endpoint, mpstructure
+                ),
+            )
+
+            t1.start()
+            t2.start()
+            t3.start()
+
+            t1.join()
+            t2.join()
+            t3.join()
+
+        else:
+            upload_part_resp = json.loads(
+                upload_part(
+                    bucket_name, key_name, part_number, upload_id, each_part, endpoint
+                )
+            )
+            part_info = {"PartNumber": part_number, "ETag": upload_part_resp["ETag"]}
+            mpstructure["Parts"].append(part_info)
+
+        if each_part != parts_list[-1]:
+            # increase the part number only if the current part is not the last part
+            part_number += 1
+        log.info("curr part_number: %s" % part_number)
+    os.system("touch mpstructure.json")
+    with open("mpstructure.json", "w") as fd:
+        json.dump(mpstructure, fd)
+    log.info(f"mpstructure data is: {mpstructure}")
+    if config.local_file_delete is True:
+        log.info("deleting local file part")
+        utils.exec_shell_cmd(f"rm -rf {mp_dir}")
+
+    if len(parts_list) == part_number:
+        log.info("all parts upload completed")
+        complete_multipart_upload_resp = json.loads(
+            complete_multipart_upload(
+                bucket_name, key_name, "mpstructure.json", upload_id, endpoint
+            )
+        )
+        return complete_multipart_upload_resp

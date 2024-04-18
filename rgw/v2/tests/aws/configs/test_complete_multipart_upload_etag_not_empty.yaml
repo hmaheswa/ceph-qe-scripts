@@ -4,10 +4,11 @@
 config:
   user_count: 1
   bucket_count: 1
-  objects_count: 1
+  objects_count: 100
   local_file_delete: true
+  split_size: 50
   objects_size_range:
-    min: 15M
-    max: 30M
+    min: 100M
+    max: 100M
   test_ops:
     verify_etag_for_complete_multipart_upload: true
