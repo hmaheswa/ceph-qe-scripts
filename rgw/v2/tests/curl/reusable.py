@@ -10,6 +10,7 @@ import os
 import re
 import sys
 import time
+import multiprocessing
 
 from threading import Thread
 import v2.lib.manage_data as manage_data
@@ -675,8 +676,346 @@ def upload_multipart_object(
         return True
 
 
+# def upload_part_parallely(
+#     curl_auth, bucket_name, s3_object_name, part_number, upload_id, body, etag_info, content_length=None, content_md5=None
+# ):
+#     """
+#     Upload part to the key in a bucket
+#     Ex: /usr/local/bin/aws s3api upload-part --bucket <bucket_name> --key <key_name> --part-number <part_number>
+#         --upload-id <upload_id> --body <body> --endpoint <endpoint_url>
+#
+#     Args:
+#         bucket_name(str): Name of the bucket
+#         key_name(str): Name of the object for which part has to be uploaded
+#         part_number(int): part number
+#         upload_id(str): upload id fetched during initiating multipart upload
+#         body(str): part file which needed to be uploaded
+#         end_point(str): endpoint
+#         ssl:
+#     Return:
+#         Response of uplaod_part i.e Etag
+#     """
+#     log.info(f"upload part {part_number} for object: {s3_object_name}")
+#     headers = {
+#         "x-amz-content-sha256": "UNSIGNED-PAYLOAD"
+#     }
+#     if content_length:
+#         headers["Content-Length"] = content_length
+#     if content_md5:
+#         headers["Content-MD5"] = content_md5
+#     command = curl_auth.command(
+#         http_method="PUT",
+#         headers=headers,
+#         input_file=body,
+#         url_suffix=f"{bucket_name}/{s3_object_name}?partNumber={part_number}&uploadId={upload_id}",
+#     )
+#     # while(len(etag_info)<2):
+#     #     # upload_part_output, verbose_output = utils.exec_shell_cmd(f"{command} --retry 5 --retry-all-errors --retry-delay 1", debug_info=True)
+#     #     # upload_part_output, verbose_output = utils.exec_shell_cmd(f"{command} -m 3", debug_info=True)
+#     #     try:
+#     #         upload_part_output, verbose_output = utils.exec_shell_cmd(command, debug_info=True)
+#     #         log.info(f"upload part successful for object {s3_object_name}")
+#     #
+#     #         etag_line = re.findall('< ETag: ".*"', str(verbose_output))
+#     #         etag = etag_line[0].split(" ")[-1]
+#     #         # for line in verbose_output.split("\n"):
+#     #         #     log.info(line)
+#     #         #     str_line = line.strip("\n")
+#     #         #     if "< ETag:" in str_line:
+#     #         #         etag = str_line.split(" ")[-1]
+#     #         etag_info.append(etag)
+#     #         return
+#     #     except Exception as e:
+#     #         log.error(f"upload part failed for object {s3_object_name} with error {e}")
+#
+#     upload_part_output, verbose_output = utils.exec_shell_cmd(command, debug_info=True)
+#     log.info(f"upload part successful for object {s3_object_name}")
+#
+#     etag_line = re.findall('< ETag: ".*"', str(verbose_output))
+#     etag = etag_line[0].split(" ")[-1]
+#     etag_info.append(etag)
+#     return
+#
+#
+# def upload_multipart_object_with_failed_part_upload(
+#     curl_auth,
+#     bucket_name,
+#     s3_object_name,
+#     TEST_DATA_PATH,
+#     config,
+#     append_data=False,
+#     append_msg=None,
+# ):
+#     """
+#     Args:
+#         bucket_name(str): Name of the bucket
+#         key_name(str): Name of the object
+#         TEST_DATA_PATH(str): Test data path
+#         endpoint(str): endpoint url
+#         config: configuration used
+#         append_data(boolean)
+#         append_msg(str)
+#     Return:
+#         Response of aws complete multipart upload operation
+#     """
+#     log.info("Create multipart upload")
+#     create_mp_upload_resp = create_multipart_upload(curl_auth, bucket_name, s3_object_name)
+#     upload_id = json.loads(create_mp_upload_resp)["UploadId"]
+#
+#     log.info(f"object name: {s3_object_name}")
+#     object_path = os.path.join(TEST_DATA_PATH, s3_object_name)
+#     log.info(f"object path: {object_path}")
+#     # object_size = config.obj_size
+#     # log.info(f"object_size: {object_size}")
+#     # split_size = config.split_size if hasattr(config, "split_size") else 5
+#     # log.info(f"split size: {split_size}")
+#     # if append_data is True:
+#     #     data_info = io_generator(
+#     #         object_path,
+#     #         object_size,
+#     #         op="append",
+#     #         **{"message": "\n%s" % append_msg},
+#     #     )
+#     # else:
+#     #     data_info = io_generator(object_path, object_size)
+#     # if data_info is False:
+#     #     TestExecError("data creation failed")
+#
+#     mp_dir = os.path.join(TEST_DATA_PATH, s3_object_name + ".mp.parts")
+#     obj1_path = mp_dir + "/obj1"
+#     obj2_path = mp_dir + "/obj2"
+#     log.info(f"mp part dir: {mp_dir}")
+#     log.info("making multipart object part dir")
+#     mkdir = utils.exec_shell_cmd(f"sudo mkdir {mp_dir}")
+#     if mkdir is False:
+#         raise TestExecError("mkdir failed creating mp_dir_name")
+#     # utils.exec_shell_cmd(f"fallocate -l 90MB /tmp/test1.txt")
+#     # utils.exec_shell_cmd(f"fallocate -l 95MB /tmp/test2.txt")
+#     utils.exec_shell_cmd(f"fallocate -l 8MB {obj1_path}")
+#     utils.exec_shell_cmd(f"fallocate -l 100MB {obj2_path}")
+#     utils.exec_shell_cmd(f"cat {obj1_path} {obj2_path} > {object_path}")
+#     parts_list = [obj1_path, obj2_path]
+#     # utils.split_file(object_path, split_size, mp_dir + "/")
+#     # parts_list = sorted(glob.glob(mp_dir + "/" + "*"))
+#     # log.info("parts_list: %s" % parts_list)
+#
+#     part_number = 1
+#     log.info("no of parts: %s" % len(parts_list))
+#
+#     etag_info = []
+#     # for each_part in parts_list:
+#     #     log.info(f"upload part {part_number} of object: {s3_object_name}")
+#     #
+#     #     if part_number==2:
+#     #         log.info("failed part2 upload")
+#     #         t1 = Thread(
+#     #             target=upload_part_parallely,
+#     #             args=(
+#     #                 curl_auth, bucket_name, s3_object_name, part_number, upload_id, "/tmp/test1.txt", etag_info, 10485760
+#     #             ),
+#     #         )
+#     #         t2 = Thread(
+#     #             target=upload_part_parallely,
+#     #             args=(
+#     #                 curl_auth, bucket_name, s3_object_name, part_number, upload_id, "/tmp/test2.txt", etag_info, 10485761
+#     #             ),
+#     #         )
+#     #         t3 = Thread(
+#     #             target=upload_part_parallely,
+#     #             args=(
+#     #                 curl_auth, bucket_name, s3_object_name, part_number, upload_id, each_part, etag_info
+#     #             ),
+#     #         )
+#     #
+#     #         t1.start()
+#     #         t2.start()
+#     #         t3.start()
+#     #
+#     #         t3.join()
+#     #
+#     #     else:
+#     #         etag = upload_part(
+#     #                 curl_auth, bucket_name, s3_object_name, part_number, upload_id, each_part
+#     #             )
+#     #         etag_info.append(etag)
+#     #
+#     #     if each_part != parts_list[-1]:
+#     #         # increase the part number only if the current part is not the last part
+#     #         part_number += 1
+#     #     log.info("curr part_number: %s" % part_number)
+#     #
+#     # log.info(f"upload part {part_number} of object: {s3_object_name}")
+#
+#     etag = upload_part(
+#         curl_auth, bucket_name, s3_object_name, part_number, upload_id, obj1_path
+#     )
+#     etag_info.append(etag)
+#
+#     log.info("failed part2 upload")
+#     t1 = Thread(
+#         target=upload_part_parallely,
+#         args=(
+#             curl_auth, bucket_name, s3_object_name, 2, upload_id, "/tmp/test1.txt", etag_info, 5000000
+#         ),
+#     )
+#     t2 = Thread(
+#         target=upload_part_parallely,
+#         args=(
+#             curl_auth, bucket_name, s3_object_name, 2, upload_id, "/tmp/test2.txt", etag_info, 6000000
+#         ),
+#     )
+#     # t3 = Thread(
+#     #     target=upload_part_parallely,
+#     #     args=(
+#     #         curl_auth, bucket_name, s3_object_name, 2, upload_id, "/tmp/test1.txt", etag_info, "PSfzeI8s47dYqBGA/uOfmQ=="
+#     #     ),
+#     # )
+#     # t4 = Thread(
+#     #     target=upload_part_parallely,
+#     #     args=(
+#     #         curl_auth, bucket_name, s3_object_name, 2, upload_id, "/tmp/test2.txt", etag_info, "PSfzeI8s47dYqBGA/uOfmQ=="
+#     #     ),
+#     # )
+#     #
+#     # t5 = Thread(
+#     #     target=upload_part_parallely,
+#     #     args=(
+#     #         curl_auth, bucket_name, s3_object_name, 2, upload_id, "/tmp/test1.txt", etag_info, "PSfzeI8s47dYqBGA/uOfmQ=="
+#     #     ),
+#     # )
+#     # t6 = Thread(
+#     #     target=upload_part_parallely,
+#     #     args=(
+#     #         curl_auth, bucket_name, s3_object_name, 2, upload_id, "/tmp/test2.txt", etag_info, "PSfzeI8s47dYqBGA/uOfmQ=="
+#     #     ),
+#     # )
+#     t7 = Thread(
+#         target=upload_part_parallely,
+#         args=(
+#             curl_auth, bucket_name, s3_object_name, 2, upload_id, obj2_path, etag_info
+#         ),
+#     )
+#     # t8 = Thread(
+#     #     target=upload_part_parallely,
+#     #     args=(
+#     #         curl_auth, bucket_name, s3_object_name, 2, upload_id, "/tmp/test1.txt", etag_info, "PSfzeI8s47dYqBGA/uOfmQ=="
+#     #     ),
+#     # )
+#     # t9 = Thread(
+#     #     target=upload_part_parallely,
+#     #     args=(
+#     #         curl_auth, bucket_name, s3_object_name, 2, upload_id, "/tmp/test2.txt", etag_info, "PSfzeI8s47dYqBGA/uOfmQ=="
+#     #     ),
+#     # )
+#     # t10 = Thread(
+#     #     target=upload_part_parallely,
+#     #     args=(
+#     #         curl_auth, bucket_name, s3_object_name, 2, upload_id, "/tmp/test1.txt", etag_info, "PSfzeI8s47dYqBGA/uOfmQ=="
+#     #     ),
+#     # )
+#     # t11 = Thread(
+#     #     target=upload_part_parallely,
+#     #     args=(
+#     #         curl_auth, bucket_name, s3_object_name, 2, upload_id, "/tmp/test2.txt", etag_info, "PSfzeI8s47dYqBGA/uOfmQ=="
+#     #     ),
+#     # )
+#     # t12 = Thread(
+#     #     target=upload_part_parallely,
+#     #     args=(
+#     #         curl_auth, bucket_name, s3_object_name, 2, upload_id, "/tmp/test1.txt", etag_info, "PSfzeI8s47dYqBGA/uOfmQ=="
+#     #     ),
+#     # )
+#     # t13 = Thread(
+#     #     target=upload_part_parallely,
+#     #     args=(
+#     #         curl_auth, bucket_name, s3_object_name, 2, upload_id, "/tmp/test2.txt", etag_info, "PSfzeI8s47dYqBGA/uOfmQ=="
+#     #     ),
+#     # )
+#
+#     t1.start()
+#     t2.start()
+#     time.sleep(1)
+#     t7.start()
+#     # t4.start()
+#     # t5.start()
+#     # t6.start()
+#     # t7.start()
+#     # t8.start()
+#     # t9.start()
+#     # t10.start()
+#     # t11.start()
+#     # t12.start()
+#     # t13.start()
+#
+#     t1.join()
+#     t2.join()
+#     t7.join()
+#     # t4.join()
+#     # t5.join()
+#     # t6.join()
+#     # t7.join()
+#
+#     t3 = Thread(
+#         target=upload_part_parallely,
+#         args=(
+#             curl_auth, bucket_name, s3_object_name, 2, upload_id, "/tmp/test1.txt", etag_info, 5000000
+#         ),
+#     )
+#     t4 = Thread(
+#         target=upload_part_parallely,
+#         args=(
+#             curl_auth, bucket_name, s3_object_name, 2, upload_id, "/tmp/test2.txt", etag_info, 6000000
+#         ),
+#     )
+#     t5 = Thread(
+#         target=upload_part_parallely,
+#         args=(
+#             curl_auth, bucket_name, s3_object_name, 2, upload_id, "/tmp/test1.txt", etag_info, 5000000
+#         ),
+#     )
+#
+#     t3.start()
+#     t4.start()
+#     t5.start()
+#
+#     time.sleep(1)
+#
+#     complete_mpu_string = '<CompleteMultipartUpload>'
+#     for i in range(len(etag_info)):
+#         complete_mpu_string = complete_mpu_string + f'<Part><PartNumber>{i+1}</PartNumber><ETag>{etag_info[i]}</ETag></Part>'
+#     complete_mpu_string = complete_mpu_string + '</CompleteMultipartUpload>'
+#
+#     log.info("all parts upload completed")
+#     complete_multipart_upload_resp = json.loads(
+#         complete_multipart_upload(
+#             curl_auth, bucket_name, s3_object_name, upload_id, complete_mpu_string
+#         )
+#     )
+#     t3.join()
+#     t4.join()
+#     t5.join()
+#
+#     if not complete_multipart_upload_resp["ETag"]:
+#         raise AssertionError(
+#             "Etag not generated during complete multipart upload operation"
+#         )
+#
+#     if config.local_file_delete is True:
+#         log.info("deleting local file part")
+#         utils.exec_shell_cmd(f"rm -rf {mp_dir}")
+#
+#     # t8.join()
+#     # t9.join()
+#     # t10.join()
+#     # t11.join()
+#     # t12.join()
+#     # t13.join()
+#
+#     return True
+
+
 def upload_part_parallely(
-    curl_auth, bucket_name, s3_object_name, part_number, upload_id, body, etag_info, content_length=None
+    curl_auth, bucket_name, s3_object_name, part_number, upload_id, body, result_queue, content_length=None, content_md5=None
 ):
     """
     Upload part to the key in a bucket
@@ -700,26 +1039,21 @@ def upload_part_parallely(
     }
     if content_length:
         headers["Content-Length"] = content_length
+    if content_md5:
+        headers["Content-MD5"] = content_md5
     command = curl_auth.command(
         http_method="PUT",
         headers=headers,
         input_file=body,
         url_suffix=f"{bucket_name}/{s3_object_name}?partNumber={part_number}&uploadId={upload_id}",
     )
-    upload_part_output, verbose_output = utils.exec_shell_cmd(f"{command} --retry 3 --retry-all-errors ", debug_info=True)
-    if upload_part_output is False:
-        log.error(f"upload part failed for object {s3_object_name}")
-        return
+
+    upload_part_output, verbose_output = utils.exec_shell_cmd(f"{command} --retry 5 --retry-all-errors --retry-delay 1", debug_info=True)
     log.info(f"upload part successful for object {s3_object_name}")
 
     etag_line = re.findall('< ETag: ".*"', str(verbose_output))
     etag = etag_line[0].split(" ")[-1]
-    # for line in verbose_output.split("\n"):
-    #     log.info(line)
-    #     str_line = line.strip("\n")
-    #     if "< ETag:" in str_line:
-    #         etag = str_line.split(" ")[-1]
-    etag_info.append(etag)
+    result_queue.put(etag)
 
 
 def upload_multipart_object_with_failed_part_upload(
@@ -750,21 +1084,6 @@ def upload_multipart_object_with_failed_part_upload(
     log.info(f"object name: {s3_object_name}")
     object_path = os.path.join(TEST_DATA_PATH, s3_object_name)
     log.info(f"object path: {object_path}")
-    # object_size = config.obj_size
-    # log.info(f"object_size: {object_size}")
-    # split_size = config.split_size if hasattr(config, "split_size") else 5
-    # log.info(f"split size: {split_size}")
-    # if append_data is True:
-    #     data_info = io_generator(
-    #         object_path,
-    #         object_size,
-    #         op="append",
-    #         **{"message": "\n%s" % append_msg},
-    #     )
-    # else:
-    #     data_info = io_generator(object_path, object_size)
-    # if data_info is False:
-    #     TestExecError("data creation failed")
 
     mp_dir = os.path.join(TEST_DATA_PATH, s3_object_name + ".mp.parts")
     obj1_path = mp_dir + "/obj1"
@@ -780,56 +1099,11 @@ def upload_multipart_object_with_failed_part_upload(
     utils.exec_shell_cmd(f"fallocate -l 100MB {obj2_path}")
     utils.exec_shell_cmd(f"cat {obj1_path} {obj2_path} > {object_path}")
     parts_list = [obj1_path, obj2_path]
-    # utils.split_file(object_path, split_size, mp_dir + "/")
-    # parts_list = sorted(glob.glob(mp_dir + "/" + "*"))
-    # log.info("parts_list: %s" % parts_list)
 
     part_number = 1
     log.info("no of parts: %s" % len(parts_list))
 
     etag_info = []
-    # for each_part in parts_list:
-    #     log.info(f"upload part {part_number} of object: {s3_object_name}")
-    #
-    #     if part_number==2:
-    #         log.info("failed part2 upload")
-    #         t1 = Thread(
-    #             target=upload_part_parallely,
-    #             args=(
-    #                 curl_auth, bucket_name, s3_object_name, part_number, upload_id, "/tmp/test1.txt", etag_info, 10485760
-    #             ),
-    #         )
-    #         t2 = Thread(
-    #             target=upload_part_parallely,
-    #             args=(
-    #                 curl_auth, bucket_name, s3_object_name, part_number, upload_id, "/tmp/test2.txt", etag_info, 10485761
-    #             ),
-    #         )
-    #         t3 = Thread(
-    #             target=upload_part_parallely,
-    #             args=(
-    #                 curl_auth, bucket_name, s3_object_name, part_number, upload_id, each_part, etag_info
-    #             ),
-    #         )
-    #
-    #         t1.start()
-    #         t2.start()
-    #         t3.start()
-    #
-    #         t3.join()
-    #
-    #     else:
-    #         etag = upload_part(
-    #                 curl_auth, bucket_name, s3_object_name, part_number, upload_id, each_part
-    #             )
-    #         etag_info.append(etag)
-    #
-    #     if each_part != parts_list[-1]:
-    #         # increase the part number only if the current part is not the last part
-    #         part_number += 1
-    #     log.info("curr part_number: %s" % part_number)
-    #
-    # log.info(f"upload part {part_number} of object: {s3_object_name}")
 
     etag = upload_part(
         curl_auth, bucket_name, s3_object_name, part_number, upload_id, obj1_path
@@ -837,39 +1111,37 @@ def upload_multipart_object_with_failed_part_upload(
     etag_info.append(etag)
 
     log.info("failed part2 upload")
-    t1 = Thread(
-        target=upload_part_parallely,
-        args=(
-            curl_auth, bucket_name, s3_object_name, 2, upload_id, "/tmp/test1.txt", etag_info, 124
-        ),
-    )
-    t2 = Thread(
-        target=upload_part_parallely,
-        args=(
-            curl_auth, bucket_name, s3_object_name, 2, upload_id, "/tmp/test2.txt", etag_info, 321
-        ),
-    )
-    t3 = Thread(
-        target=upload_part_parallely,
-        args=(
-            curl_auth, bucket_name, s3_object_name, 2, upload_id, obj2_path, etag_info
-        ),
-    )
+    processs = []
+    result_queue = multiprocessing.Queue()
 
-    t3.start()
-    t1.start()
-    t2.start()
+    process1 = multiprocessing.Process(
+        target=upload_part_parallely,
+        args=[curl_auth, bucket_name, s3_object_name, 2, upload_id, "/tmp/test1.txt", result_queue, 5000000])
+    process1.start()
+    processs.append(process1)
 
-    t3.join()
+    process2 = multiprocessing.Process(
+        target=upload_part_parallely,
+        args=[curl_auth, bucket_name, s3_object_name, 2, upload_id, "/tmp/test1.txt", result_queue, 6000000])
+    process2.start()
+    processs.append(process2)
+
+    process3 = multiprocessing.Process(
+        target=upload_part_parallely,
+        args=[curl_auth, bucket_name, s3_object_name, 2, upload_id, obj2_path, result_queue])
+    process3.start()
+    processs.append(process3)
+
+    result = result_queue.get()  # waits until any of the proccess have `.put()` a result
+    etag_info.append(result)
+
+    for process in processs:  # then kill them all off
+        process.terminate()
 
     complete_mpu_string = '<CompleteMultipartUpload>'
     for i in range(len(etag_info)):
         complete_mpu_string = complete_mpu_string + f'<Part><PartNumber>{i+1}</PartNumber><ETag>{etag_info[i]}</ETag></Part>'
     complete_mpu_string = complete_mpu_string + '</CompleteMultipartUpload>'
-
-    if config.local_file_delete is True:
-        log.info("deleting local file part")
-        utils.exec_shell_cmd(f"rm -rf {mp_dir}")
 
     log.info("all parts upload completed")
     complete_multipart_upload_resp = json.loads(
@@ -877,10 +1149,14 @@ def upload_multipart_object_with_failed_part_upload(
             curl_auth, bucket_name, s3_object_name, upload_id, complete_mpu_string
         )
     )
+
     if not complete_multipart_upload_resp["ETag"]:
         raise AssertionError(
             "Etag not generated during complete multipart upload operation"
         )
-    t1.join()
-    t2.join()
+
+    if config.local_file_delete is True:
+        log.info("deleting local file part")
+        utils.exec_shell_cmd(f"rm -rf {mp_dir}")
+
     return True
