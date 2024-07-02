@@ -28,13 +28,14 @@ config:
                "Statement":
                     {
                          "Effect": "Allow",
-                         "Action":
-                              [
-                                   "s3:CreateBucket",
-                                   "s3:GetObject",
-                                   "s3:GetObjectVersion",
-                                   "s3:ListBucket",
-                              ],
+                         "Action": "s3:*",
+#                              [
+#                                   "s3:CreateBucket",
+#                                   "s3:GetObject",
+#                                   "s3:GetObjectVersion",
+#                                   "s3:ListBucket",
+#                                   "s3:DeleteObject",
+#                              ],
                          "Resource": "arn:aws:s3:::*",
                     }
           session_policy:

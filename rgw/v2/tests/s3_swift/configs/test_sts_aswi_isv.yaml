@@ -16,20 +16,15 @@ config:
                     {
                          "Effect": "Allow",
                          "Principal": {
-                           "Federated": ["arn:aws:iam:::oidc-provider/ip_addr:8180/realms/master"]
+                           "Federated": ["arn:aws:iam:::oidc-provider/cephlabs.verify.ibm.com/v1.0/endpoint/default"]
                          },
                          "Action": ["sts:AssumeRoleWithWebIdentity"],
+#                         "Condition": {
+#                           "StringLike": {"cephlabs.verify.ibm.com/oidc/endpoint/default:sub":"646000K605"}
+#                         }
                     }
                 ]
           role_policy:
-               "Version": "2012-10-17"
-               "Statement":
-                    {
-                         "Effect": "Allow",
-                         "Action": "s3:*",
-                         "Resource": "arn:aws:s3:::*",
-                    }
-          session_policy:
                "Version": "2012-10-17"
                "Statement":
                     {

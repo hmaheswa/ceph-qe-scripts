@@ -109,7 +109,7 @@ class Auth(object):
             endpoint_url=self.endpoint_url,
             config=additional_config,
             verify=False,
-            region_name="",
+            region_name="us-east-1",
             aws_session_token=self.session_token if self.session_token else None,
         )
         return rgw

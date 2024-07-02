@@ -15,6 +15,48 @@ log = logging.getLogger()
 TEST_DATA_PATH = None
 
 
+# obtain_oidc_thumbprint_sh = """
+# #!/bin/bash
+#
+# # Get the 'x5c' from this response to turn into an IDP-cert
+# KEY1_RESPONSE=$(curl --show-error --fail -k -v \
+#      -X GET \
+#      -H 'Content-Type: application/x-www-form-urlencoded' \
+#      'http://localhost:8180/realms/master/protocol/openid-connect/certs' 2>/dev/null \
+#      | jq -r .keys[0].x5c)
+#
+# KEY2_RESPONSE=$(curl --show-error --fail -k -v \
+#      -X GET \
+#      -H 'Content-Type: application/x-www-form-urlencoded' \
+#      'http://localhost:8180/realms/master/protocol/openid-connect/certs' 2>/dev/null \
+#      | jq -r .keys[1].x5c)
+#
+# # Assemble Cert1
+# echo '-----BEGIN CERTIFICATE-----' > certificate1.crt
+# echo $(echo $KEY1_RESPONSE) | sed 's/^.//;s/.$//;s/^.//;s/.$//;s/^.//;s/.$//' >> certificate1.crt
+# echo '-----END CERTIFICATE-----' >> certificate1.crt
+#
+# # Assemble Cert2
+# echo '-----BEGIN CERTIFICATE-----' > certificate2.crt
+# echo $(echo $KEY2_RESPONSE) | sed 's/^.//;s/.$//;s/^.//;s/.$//;s/^.//;s/.$//' >> certificate2.crt
+# echo '-----END CERTIFICATE-----' >> certificate2.crt
+#
+# # Create Thumbprint for both certs
+# PRETHUMBPRINT1=$(openssl x509 -in certificate1.crt -fingerprint -noout)
+# PRETHUMBPRINT2=$(openssl x509 -in certificate2.crt -fingerprint -noout)
+#
+# PRETHUMBPRINT1=$(echo $PRETHUMBPRINT1 | awk '{ print substr($0, 18) }')
+# PRETHUMBPRINT2=$(echo $PRETHUMBPRINT2 | awk '{ print substr($0, 18) }')
+#
+# echo ${PRETHUMBPRINT1//:}
+# echo ${PRETHUMBPRINT2//:}
+#
+# #clean up the temp files
+# rm certificate1.crt
+# rm certificate2.crt
+# """
+
+
 obtain_oidc_thumbprint_sh = """
 #!/bin/bash
 
@@ -22,38 +64,24 @@ obtain_oidc_thumbprint_sh = """
 KEY1_RESPONSE=$(curl --show-error --fail -k -v \
      -X GET \
      -H 'Content-Type: application/x-www-form-urlencoded' \
-     'http://localhost:8180/realms/master/protocol/openid-connect/certs' 2>/dev/null \
+     'https://cephlabs.verify.ibm.com/v1.0/endpoint/default/jwks' 2>/dev/null \
      | jq -r .keys[0].x5c)
-
-KEY2_RESPONSE=$(curl --show-error --fail -k -v \
-     -X GET \
-     -H 'Content-Type: application/x-www-form-urlencoded' \
-     'http://localhost:8180/realms/master/protocol/openid-connect/certs' 2>/dev/null \
-     | jq -r .keys[1].x5c)
 
 # Assemble Cert1
 echo '-----BEGIN CERTIFICATE-----' > certificate1.crt
 echo $(echo $KEY1_RESPONSE) | sed 's/^.//;s/.$//;s/^.//;s/.$//;s/^.//;s/.$//' >> certificate1.crt
 echo '-----END CERTIFICATE-----' >> certificate1.crt
 
-# Assemble Cert2
-echo '-----BEGIN CERTIFICATE-----' > certificate2.crt
-echo $(echo $KEY2_RESPONSE) | sed 's/^.//;s/.$//;s/^.//;s/.$//;s/^.//;s/.$//' >> certificate2.crt
-echo '-----END CERTIFICATE-----' >> certificate2.crt
 
 # Create Thumbprint for both certs
 PRETHUMBPRINT1=$(openssl x509 -in certificate1.crt -fingerprint -noout)
-PRETHUMBPRINT2=$(openssl x509 -in certificate2.crt -fingerprint -noout)
 
 PRETHUMBPRINT1=$(echo $PRETHUMBPRINT1 | awk '{ print substr($0, 18) }')
-PRETHUMBPRINT2=$(echo $PRETHUMBPRINT2 | awk '{ print substr($0, 18) }')
 
 echo ${PRETHUMBPRINT1//:}
-echo ${PRETHUMBPRINT2//:}
 
 #clean up the temp files
 rm certificate1.crt
-rm certificate2.crt
 """
 
 
@@ -522,45 +550,47 @@ class Keycloak:
             raise Exception("failed to update realm")
         return out
 
-    def create_open_id_connect_provider(self, iam_client):
-        # obtain oidc idp thumbprint
-        global obtain_oidc_thumbprint_sh
-        with open("obtain_oidc_thumbprint.sh", "w") as rsh:
-            rsh.write(f"{obtain_oidc_thumbprint_sh}")
-        utils.exec_shell_cmd("chmod +rwx obtain_oidc_thumbprint.sh")
-        thumbprints = utils.exec_shell_cmd("./obtain_oidc_thumbprint.sh")
-        thumbprints = thumbprints.strip().split("\n")
-        try:
-            # create openid connect provider
-            oidc_response = iam_client.create_open_id_connect_provider(
-                Url=f"http://{self.ip_addr}:8180/realms/master",
-                ClientIDList=["account", self.client_id],
-                ThumbprintList=thumbprints,
+
+def create_open_id_connect_provider(iam_client):
+    # obtain oidc idp thumbprint
+    global obtain_oidc_thumbprint_sh
+    with open("obtain_oidc_thumbprint.sh", "w") as rsh:
+        rsh.write(f"{obtain_oidc_thumbprint_sh}")
+    utils.exec_shell_cmd("chmod +rwx obtain_oidc_thumbprint.sh")
+    thumbprints = utils.exec_shell_cmd("./obtain_oidc_thumbprint.sh")
+    thumbprints = thumbprints.strip().split("\n")
+    log.info(thumbprints)
+    try:
+        # create openid connect provider
+        oidc_response = iam_client.create_open_id_connect_provider(
+            Url=f"https://cephlabs.verify.ibm.com/v1.0/endpoint/default",
+            ClientIDList=["ceph"],
+            ThumbprintList=thumbprints,
+        )
+        log.info(f"create oidc response: {oidc_response}")
+    except Exception as e:
+        log.info(f"Exception {e} occured")
+        log.info("Provider already exists")
+    return True
+
+def list_open_id_connect_provider(iam_client):
+    # list openid connect providers
+    try:
+        oidc_response = iam_client.list_open_id_connect_providers()
+        log.info(f"list oidc response: {oidc_response}")
+        return oidc_response
+    except Exception as e:
+        log.info("No openid connect providers exists")
+
+def delete_open_id_connect_provider(iam_client):
+    json_out = list_open_id_connect_provider(iam_client)
+    if json_out:
+        for provider in json_out["OpenIDConnectProviderList"]:
+            arn = provider["Arn"]
+            oidc_response = iam_client.delete_open_id_connect_provider(
+                OpenIDConnectProviderArn=arn
             )
-            log.info(f"create oidc response: {oidc_response}")
-        except Exception as e:
-            log.info(f"Exception {e} occured")
-            log.info("Provider already exists")
-        return True
-
-    def list_open_id_connect_provider(self, iam_client):
-        # list openid connect providers
-        try:
-            oidc_response = iam_client.list_open_id_connect_providers()
-            log.info(f"list oidc response: {oidc_response}")
-            return oidc_response
-        except Exception as e:
-            log.info("No openid connect providers exists")
-
-    def delete_open_id_connect_provider(self, iam_client):
-        json_out = self.list_open_id_connect_provider(iam_client)
-        if json_out:
-            for provider in json_out["OpenIDConnectProviderList"]:
-                arn = provider["Arn"]
-                oidc_response = iam_client.delete_open_id_connect_provider(
-                    OpenIDConnectProviderArn=arn
-                )
-                log.info(f"delete oidc response: {oidc_response}")
-                time.sleep(5)
-        else:
-            log.info("No openid connect providers exists to delete")
+            log.info(f"delete oidc response: {oidc_response}")
+            time.sleep(5)
+    else:
+        log.info("No openid connect providers exists to delete")

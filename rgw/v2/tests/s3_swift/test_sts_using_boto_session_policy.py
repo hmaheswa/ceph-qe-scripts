@@ -38,6 +38,10 @@ import traceback
 
 import v2.lib.resource_op as s3lib
 import v2.utils.utils as utils
+import v2.lib.s3.bucket_policy as s3_bucket_policy
+import v2.tests.s3_swift.reusables.bucket_policy_ops as bucket_policy_ops
+
+
 from v2.lib.exceptions import RGWBaseException, TestExecError
 from v2.lib.resource_op import Config
 from v2.lib.rgw_config_opts import CephConfOp, ConfigOpts
@@ -145,6 +149,8 @@ def test_exec(config, ssh_con):
     log.info("got the credentials after assume role")
     s3client = Auth(assumed_role_user_info, ssh_con, ssl=config.ssl)
     s3_client_rgw = s3client.do_auth()
+    sts_s3_client = s3client.do_auth_using_client()
+
 
     io_info_initialize.initialize(basic_io_structure.initial())
     write_user_info = AddUserInfo()
@@ -168,6 +174,42 @@ def test_exec(config, ssh_con):
             bucket = reusable.create_bucket(
                 bucket_name_to_create, s3_client_rgw, assumed_role_user_info
             )
+
+            bucket_resp = sts_s3_client.list_buckets()
+            log.info(f"list buckets data: {bucket_resp}")
+
+            log.info(f"abort multipart operation")
+            abrt_mult_resp = bucket_policy_ops.AbortMultipartUpload(
+                rgw_client=sts_s3_client,
+                bucket_name=bucket_name_to_create,
+                object_name=f"obj1"
+            )
+            log.info(f"abort multipart response: {abrt_mult_resp}")
+
+            log.info(f"upload multipart object")
+            config.obj_size = 15
+            s3_object_name = f"obj2"
+            log.info("s3 object name: %s" % s3_object_name)
+            s3_object_path = os.path.join(TEST_DATA_PATH, s3_object_name)
+            log.info("s3 object path: %s" % s3_object_path)
+            reusable.upload_object(
+                s3_object_name,
+                bucket,
+                TEST_DATA_PATH,
+                config,
+                assumed_role_user_info,
+            )
+
+
+
+            put_bkt_ver_resp = bucket_policy_ops.PutBucketVersioning(
+                rgw_client=sts_s3_client,
+                bucket_name=bucket_name_to_create,
+            )
+            log.info(f"put bucket versioning response: {put_bkt_ver_resp}")
+
+
+
             if config.test_ops["create_object"] is True:
                 # uploading data
                 log.info("s3 objects to create: %s" % config.objects_count)
@@ -177,13 +219,17 @@ def test_exec(config, ssh_con):
                     log.info("s3 object name: %s" % s3_object_name)
                     s3_object_path = os.path.join(TEST_DATA_PATH, s3_object_name)
                     log.info("s3 object path: %s" % s3_object_path)
-                    reusable.failed_upload_object(
+                    reusable.upload_object(
                         s3_object_name,
                         bucket,
                         TEST_DATA_PATH,
                         config,
                         assumed_role_user_info,
                     )
+            # reusable.delete_objects(bucket)
+            log.info(f"deleting all objects using bucket.object_versions.delete()")
+            bucket.object_versions.delete()
+            reusable.delete_bucket(bucket)
 
     # check for any crashes during the execution
     crash_info = reusable.check_for_crash()

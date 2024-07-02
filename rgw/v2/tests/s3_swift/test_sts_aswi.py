@@ -40,6 +40,12 @@ from datetime import datetime
 import boto3
 import v2.lib.resource_op as s3lib
 import v2.utils.utils as utils
+
+import v2.lib.s3.bucket_policy as s3_bucket_policy
+import v2.tests.s3_swift.reusables.bucket_policy_ops as bucket_policy_ops
+import v2.tests.s3_swift.reusables.sts as sts
+
+
 from botocore.exceptions import ClientError
 from v2.lib.exceptions import RGWBaseException, TestExecError
 from v2.lib.resource_op import Config
@@ -47,7 +53,7 @@ from v2.lib.rgw_config_opts import CephConfOp, ConfigOpts
 from v2.lib.s3.auth import Auth
 from v2.lib.s3.write_io_info import AddUserInfo, BasicIOInfoStructure, IOInfoInitialize
 from v2.tests.s3_swift import reusable
-from v2.tests.s3_swift.reusables.sts import Keycloak
+# from v2.tests.s3_swift.reusables.sts import Keycloak
 from v2.utils.log import configure_logging
 from v2.utils.test_desc import AddTestInfo
 from v2.utils.utils import RGWService
@@ -64,12 +70,12 @@ def test_exec(config, ssh_con):
     rgw_service = RGWService()
     local_ip_addr = utils.get_localhost_ip_address()
 
-    keycloak = Keycloak(
-        client_id="sts_client",
-        client_secret="client_secret1",
-        ip_addr=local_ip_addr,
-        attributes=config.test_ops.get("session_tags"),
-    )
+    # keycloak = Keycloak(
+    #     client_id="sts_client",
+    #     client_secret="client_secret1",
+    #     ip_addr=local_ip_addr,
+    #     attributes=config.test_ops.get("session_tags"),
+    # )
 
     if config.sts is None:
         raise TestExecError("sts policies are missing in yaml config")
@@ -111,17 +117,19 @@ def test_exec(config, ssh_con):
     sts_client = auth2.do_auth_sts_client()
     log.info(f"sts client: {sts_client}")
 
-    web_token = keycloak.get_web_access_token()
-    log.info(f"web token: {web_token}")
-    jwt = keycloak.introspect_token(web_token)
+    # web_token = keycloak.get_web_access_token()
+    # log.info(f"web token: {web_token}")
+    # jwt = keycloak.introspect_token(web_token)
     policy_document = json.dumps(config.sts["policy_document"]).replace(" ", "")
-    policy_document = policy_document.replace("ip_addr", local_ip_addr)
-    policy_document = policy_document.replace("azp_claim", jwt["azp"])
-    policy_document = policy_document.replace("sub_claim", jwt["sub"])
+    # policy_document = policy_document.replace("ip_addr", local_ip_addr)
+    # policy_document = policy_document.replace("azp_claim", jwt["azp"])
+    # policy_document = policy_document.replace("sub_claim", jwt["sub"])
     log.info(policy_document)
 
     role_policy = json.dumps(config.sts["role_policy"]).replace(" ", "")
 
+    # session_policy = json.dumps(config.sts["session_policy"]).replace(" ", "")
+
     add_caps_cmd = (
         'sudo radosgw-admin caps add --uid="{user_id}" --caps="roles=*"'.format(
             user_id=user1["user_id"]
@@ -150,9 +158,9 @@ def test_exec(config, ssh_con):
     )
     utils.exec_shell_cmd(add_caps_cmd)
 
-    keycloak.delete_open_id_connect_provider(iam_client)
-    keycloak.create_open_id_connect_provider(iam_client)
-    keycloak.list_open_id_connect_provider(iam_client)
+    sts.delete_open_id_connect_provider(iam_client)
+    sts.create_open_id_connect_provider(iam_client)
+    sts.list_open_id_connect_provider(iam_client)
 
     role_name = f"S3RoleOf.{user1['user_id']}"
     log.info(f"role_name: {role_name}")
@@ -179,16 +187,22 @@ def test_exec(config, ssh_con):
     log.info("put_policy_response")
     log.info(put_policy_response)
 
-    web_token = keycloak.get_web_access_token()
+    # web_token = keycloak.get_web_access_token()
+    web_token = utils.exec_shell_cmd(
+        # f'curl -k -q -s -L -X POST "https://cephlabs.verify.ibm.com/v1.0/endpoint/default/token" -H "Content-Type: application/x-www-form-urlencoded" --data-urlencode "client_id=9b6b7ea8-616c-4b1a-a104-58afb2c0a11a" --data-urlencode "grant_type=password" --data-urlencode "client_secret=sbU5lL7Edc" --data-urlencode "scope=openid" --data-urlencode "username=testuser" --data-urlencode "password=adm3-.PW" | jq -r .access_token'
+        f'curl -k -q -s -L -X POST "https://cephlabs.verify.ibm.com/v1.0/endpoint/default/token" -H "Content-Type: application/x-www-form-urlencoded" --data-urlencode "client_id=9b6b7ea8-616c-4b1a-a104-58afb2c0a11a" --data-urlencode "grant_type=password" --data-urlencode "client_secret=sbU5lL7Edc" --data-urlencode "scope=openid" --data-urlencode "username=testuser" --data-urlencode "password=adm3-.PW" | jq -r .id_token'
+    )
+    web_token = web_token.strip()
     log.info(f"web token: {web_token}")
-    keycloak.introspect_token(web_token)
+    # keycloak.introspect_token(web_token)
     sts_creds_created_time = time.time()
     sts_creds_validity_seconds = config.test_ops.get("sts_creds_validity_seconds", 3600)
     assume_role_response = sts_client.assume_role_with_web_identity(
         RoleArn=create_role_response["Role"]["Arn"],
         RoleSessionName=user1["user_id"],
         DurationSeconds=sts_creds_validity_seconds,
-        WebIdentityToken=web_token,
+        WebIdentityToken="sCur6PcR3cw6Km138Yr2CSjVH3lTFjnp6SmY0SziAcc.gNufLUKo-xtzvMnp2ZavIISerij9yh0huVDatfhiVF3I6HnHwwTtzYTSUBGi6h5aAoGnBqZayj1B-esjjdVI7A.M18xNzE5MzQzMjI3XzM1",
+        # Policy=session_policy,
     )
     log.info(f"assume role with web identity response: {assume_role_response}")
 
@@ -201,6 +215,7 @@ def test_exec(config, ssh_con):
     s3_auth = Auth(assumed_role_user_info, ssh_con, ssl=config.ssl)
     rgw_conn_using_sts_creds = s3_auth.do_auth()
     rgw_client_using_sts_creds = s3_auth.do_auth_using_client()
+    sts_s3_client = s3_auth.do_auth_using_client()
 
     io_info_initialize.initialize(basic_io_structure.initial())
     write_user_info = AddUserInfo()
@@ -244,6 +259,45 @@ def test_exec(config, ssh_con):
                     },
                 )
                 log.info(f"put bucket tagging response: {response}")
+
+
+
+
+
+            bucket_resp = sts_s3_client.list_buckets()
+            log.info(f"list buckets data: {bucket_resp}")
+
+            log.info(f"abort multipart operation")
+            abrt_mult_resp = bucket_policy_ops.AbortMultipartUpload(
+                rgw_client=sts_s3_client,
+                bucket_name=bucket_name_to_create,
+                object_name=f"obj1"
+            )
+            log.info(f"abort multipart response: {abrt_mult_resp}")
+
+            log.info(f"upload multipart object")
+            config.obj_size = 15
+            s3_object_name = f"obj2"
+            log.info("s3 object name: %s" % s3_object_name)
+            s3_object_path = os.path.join(TEST_DATA_PATH, s3_object_name)
+            log.info("s3 object path: %s" % s3_object_path)
+            reusable.upload_object(
+                s3_object_name,
+                bucket,
+                TEST_DATA_PATH,
+                config,
+                assumed_role_user_info,
+            )
+
+
+
+            # put_bkt_ver_resp = bucket_policy_ops.PutBucketVersioning(
+            #     rgw_client=sts_s3_client,
+            #     bucket_name=bucket_name_to_create,
+            # )
+            # log.info(f"put bucket versioning response: {put_bkt_ver_resp}")
+
+
             if config.test_ops["create_object"]:
                 # uploading data
                 log.info("s3 objects to create: %s" % config.objects_count)
@@ -271,6 +325,10 @@ def test_exec(config, ssh_con):
                             config,
                             assumed_role_user_info,
                         )
+            reusable.delete_objects(bucket)
+            # log.info(f"deleting all objects using bucket.object_versions.delete()")
+            # bucket.object_versions.delete()
+            reusable.delete_bucket(bucket)
 
     # refer bz: https://bugzilla.redhat.com/show_bug.cgi?id=2214981
     if config.test_ops.get("test_copy_in_progress_sts_creds_expire"):
