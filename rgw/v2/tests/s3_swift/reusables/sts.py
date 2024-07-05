@@ -564,7 +564,7 @@ def create_open_id_connect_provider(iam_client):
         # create openid connect provider
         oidc_response = iam_client.create_open_id_connect_provider(
             Url=f"https://cephlabs.verify.ibm.com/v1.0/endpoint/default",
-            ClientIDList=["ceph"],
+            ClientIDList=[],
             ThumbprintList=thumbprints,
         )
         log.info(f"create oidc response: {oidc_response}")
